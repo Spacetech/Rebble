@@ -1,0 +1,68 @@
+{
+	"uuid": "d7583c96-0b0c-41ee-86a4-facdca791151",
+	"shortName": "Rebble",
+	"longName": "Rebble",
+	"companyName": "NegaTech",
+	"versionCode": 2,
+	"versionLabel": "1.1",
+	"capabilities": [ "configurable" ],
+	"watchapp":
+	{
+		"watchface": false
+	},
+	"appKeys":
+	{
+		"subreddit": 0,
+		"thread": 1,
+
+		"subreddit_next": 2,
+
+		"id": 3,
+		"title": 4,
+		"score": 5,
+		"type": 6,
+		"thread_body": 7,
+
+		"upvote": 8,
+		"downvote": 9,
+		"save": 10,
+
+		"user_subreddit": 11,
+		"load_subredditlist": 13,
+		
+		"chunk_size": 14,
+
+		"ready": 15,
+
+		"NETIMAGE_DATA": 1768777472,
+		"NETIMAGE_BEGIN": 1768777473,
+		"NETIMAGE_END": 1768777474,
+		"NETIMAGE_CHUNK_SIZE": 1768777475,
+		"NETIMAGE_URL": 1768777476
+	},
+	"resources":
+	{
+		"media": [
+		{
+			"type": "png",
+			"menuIcon": true,
+			"name": "IMAGE_ICON",
+			"file": "images/icon.png"
+		},
+		{
+			"type": "png",
+			"name": "IMAGE_UPVOTE",
+			"file": "images/upvote.png"
+		},
+		{
+			"type": "png",
+			"name": "IMAGE_TEXT",
+			"file": "images/text.png"
+		},
+		{
+			"type": "png",
+			"name": "IMAGE_IMAGE",
+			"file": "images/image.png"
+		}]
+	}
+}
