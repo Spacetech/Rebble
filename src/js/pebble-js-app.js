@@ -600,7 +600,7 @@ Pebble.addEventListener("showConfiguration", function(e)
 {
 	//console.log("showConfiguration");
 
-	var url = "http://garywilber.com/rebble/index.html?";
+	var url = "http://spacetech.github.io/Rebble/index.html?";
 
 	if(username)
 	{
