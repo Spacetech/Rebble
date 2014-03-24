@@ -7,7 +7,7 @@ Reddit on the Pebble Smartwatch. With Rebble, you can easily view Reddit on the 
 
 Released on the [Pebble App Store](http://pblweb.com/appstore/5300e4029810e0a8940000e8/)
 
-Vote for us on [ChallengePost](http://challengepost.com/software/rebble--2)!
+Vote for us on [ChallengePost](http://pebble.challengepost.com/submissions/21824-rebble)!
 
 [![ScreenShot](http://img.youtube.com/vi/Umkoy4dOLwc/0.jpg)](http://youtu.be/Umkoy4dOLwc)
 
