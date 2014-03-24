@@ -16,7 +16,8 @@ GBitmap *bitmap_upvote;
 GBitmap *bitmap_image;
 GBitmap *bitmap_text;
 
-GRect subtext_score_rect;
+GRect sub_score_rect;
+GRect sub_subreddit_rect;
 GSize text_size;
 
 InverterLayer *inverter_layer;
@@ -50,7 +51,8 @@ void subreddit_window_load(Window *window)
 	bitmap_text = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_TEXT);
 	bitmap_image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_IMAGE);
 
-	subtext_score_rect = GRect(22, 0, 50, THREAD_WINDOW_HEIGHT);
+	sub_score_rect = GRect(22, 0, 50, THREAD_WINDOW_HEIGHT);
+	sub_subreddit_rect = GRect(55, 0, 68, THREAD_WINDOW_HEIGHT);
 
 	subreddit_scroll_layer = scroll_layer_create(window_frame);
 
@@ -182,9 +184,14 @@ static void subreddit_sub_layer_update_proc(Layer *layer, GContext *ctx)
 	graphics_context_set_fill_color(ctx, GColorBlack);
 	graphics_context_set_text_color(ctx, GColorBlack);
 
-	graphics_draw_text(ctx, thread->subtext_score, GetFont(), subtext_score_rect, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-
 	graphics_draw_bitmap_in_rect(ctx, bitmap_upvote, GRect(5, 5, 12, 15));
+
+	graphics_draw_text(ctx, thread->score, GetFont(), sub_score_rect, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+
+	if(thread->subreddit != NULL)
+	{
+		graphics_draw_text(ctx, thread->subreddit, GetFont(), sub_subreddit_rect, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+	}
 
 	graphics_draw_bitmap_in_rect(ctx, thread->type == 1 ? bitmap_image : bitmap_text, GRect(window_frame.size.w - (thread->type == 1 ? 20 : 21), 8, thread->type == 1 ? 16 : 15, thread->type == 1 ? 12 : 9));
 }
@@ -392,10 +399,16 @@ void subreddit_load_setup()
 			thread->title = NULL;
 		}
 
-		if(thread->subtext_score != NULL)
+		if(thread->score != NULL)
 		{
-			nt_Free(thread->subtext_score);
-			thread->subtext_score = NULL;
+			nt_Free(thread->score);
+			thread->score = NULL;
+		}
+
+		if(thread->subreddit != NULL)
+		{
+			nt_Free(thread->subreddit);
+			thread->subreddit = NULL;
 		}
 
 		layer_set_hidden(thread->layer, true);

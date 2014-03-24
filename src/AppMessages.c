@@ -53,6 +53,7 @@ static void in_received_handler(DictionaryIterator *iter, void *context)
 	Tuple *thread_title_tuple = dict_find(iter, THREAD_TITLE);
 	Tuple *thread_score_tuple = dict_find(iter, THREAD_SCORE);
 	Tuple *thread_type_tuple = dict_find(iter, THREAD_TYPE);
+	Tuple *thread_subreddit_tuple = dict_find(iter, THREAD_SUBREDDIT);
 
 	Tuple *thread_body_tuple = dict_find(iter, THREAD_BODY);
 
@@ -177,20 +178,33 @@ done_skip:
 
 		struct ThreadData *thread = &threads[thread_loaded];
 
+		// title
 		if(thread->title != NULL)
 		{
 			nt_Free(thread->title);
 		}
 		thread->title = (char*)nt_Malloc(sizeof(char) * (strlen(thread_title_tuple->value->cstring) + 1));
 
-		if(thread->subtext_score != NULL)
+		// score
+		if(thread->score != NULL)
 		{
-			nt_Free(thread->subtext_score);
+			nt_Free(thread->score);
 		}
-		thread->subtext_score = (char*)nt_Malloc(sizeof(char) * (strlen(thread_score_tuple->value->cstring) + 1));
+		thread->score = (char*)nt_Malloc(sizeof(char) * (strlen(thread_score_tuple->value->cstring) + 1));
 
 		strcpy(thread->title, thread_title_tuple->value->cstring);
-		strcpy(thread->subtext_score, thread_score_tuple->value->cstring);
+		strcpy(thread->score, thread_score_tuple->value->cstring);
+
+		// subreddit (only given if we are viewing the frontpage)
+		if(thread->subreddit != NULL)
+		{
+			nt_Free(thread->subreddit);
+		}
+		if(thread_subreddit_tuple != NULL)
+		{
+			thread->subreddit = (char*)nt_Malloc(sizeof(char) * (strlen(thread_subreddit_tuple->value->cstring) + 1));
+			strcpy(thread->subreddit, thread_subreddit_tuple->value->cstring);
+		}
 
 		thread->type = thread_type_tuple->value->uint8;
 

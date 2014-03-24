@@ -3,8 +3,8 @@
 	"shortName": "Rebble",
 	"longName": "Rebble",
 	"companyName": "NegaTech",
-	"versionCode": 4,
-	"versionLabel": "1.1.1",
+	"versionCode": 5,
+	"versionLabel": "1.1.2",
 	"capabilities": [ "configurable" ],
 	"watchapp":
 	{
@@ -33,6 +33,8 @@
 		"chunk_size": 14,
 
 		"ready": 15,
+
+		"thread_subreddit": 16,
 
 		"NETIMAGE_DATA": 1768777472,
 		"NETIMAGE_BEGIN": 1768777473,

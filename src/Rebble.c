@@ -312,40 +312,40 @@ inline void windows_create()
 	window_set_window_handlers(window_loading, (WindowHandlers)
 	{
 		.load = loading_window_load,
-		 .disappear = loading_window_disappear,
-		  .unload = loading_window_unload,
+		.disappear = loading_window_disappear,
+		.unload = loading_window_unload,
 	});
 
 	window_subreddit = window_create();
 	window_set_window_handlers(window_subreddit, (WindowHandlers)
 	{
 		.load = subreddit_window_load,
-		 .appear = subreddit_window_appear,
-		  .disappear = subreddit_window_disappear,
-		   .unload = subreddit_window_unload,
+		.appear = subreddit_window_appear,
+		.disappear = subreddit_window_disappear,
+		.unload = subreddit_window_unload,
 	});
 
 	window_thread = window_create();
 	window_set_window_handlers(window_thread, (WindowHandlers)
 	{
 		.load = thread_window_load,
-		 .appear = thread_window_appear,
-		  .disappear = thread_window_disappear,
-		   .unload = thread_window_unload,
+		.appear = thread_window_appear,
+		.disappear = thread_window_disappear,
+		.unload = thread_window_unload,
 	});
 
 	window_threadmenu = window_create();
 	window_set_window_handlers(window_threadmenu, (WindowHandlers)
 	{
 		.load = threadmenu_window_load,
-		 .unload = threadmenu_window_unload,
+		.unload = threadmenu_window_unload,
 	});
 
 	window_subredditlist = window_create();
 	window_set_window_handlers(window_subredditlist, (WindowHandlers)
 	{
 		.load = subredditlist_window_load,
-		 .unload = subredditlist_window_unload,
+		.unload = subredditlist_window_unload,
 	});
 }
 
@@ -366,7 +366,8 @@ int main()
 	{
 		struct ThreadData *thread = GetThread(i);
 		thread->title = NULL;
-		thread->subtext_score = NULL;
+		thread->score = NULL;
+		thread->subreddit = NULL;
 	}
 
 	font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
@@ -400,9 +401,14 @@ int main()
 			nt_Free(thread->title);
 		}
 
-		if(thread->subtext_score != NULL)
+		if(thread->score != NULL)
 		{
-			nt_Free(thread->subtext_score);
+			nt_Free(thread->score);
+		}
+
+		if(thread->subreddit != NULL)
+		{
+			nt_Free(thread->subreddit);
 		}
 	}
 

@@ -53,13 +53,16 @@ enum
 
 	READY = 0xF,
 
-	LAST_DICT_ITEM = 0x10
+	THREAD_SUBREDDIT = 0x10,
+
+	LAST_DICT_ITEM = 0x11
 };
 
 struct ThreadData
 {
 	char *title;
-	char *subtext_score;
+	char *score;
+	char *subreddit;
 	unsigned char type;
 	Layer *layer;
 };

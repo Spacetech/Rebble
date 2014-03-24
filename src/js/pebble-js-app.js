@@ -361,8 +361,11 @@ function Subreddit_Load(subreddit, after)
 	nt_InitAppMessageQueue(SUBREDDIT_QUEUE);
 
 	var url;
+	var frontpage = false;
+
 	if(subreddit === "")
 	{
+		frontpage = true;
 		url = "http://www.reddit.com/hot.json?limit=100";
 	}
 	else
@@ -410,7 +413,6 @@ function Subreddit_Load(subreddit, after)
 					if(thread.is_self === true || image !== "")
 					{
 						success = true;
-
 						loadedThreads[threads] = {
 							"id": thread.id,
 							"url": thread.url,
@@ -419,11 +421,18 @@ function Subreddit_Load(subreddit, after)
 
 						var trimmed_title = thread.title.replace(/[^A-Za-z 0-9 \.,\?""!@#\$%\^&\*\(\)-_=\+;:<>\/\\\|\}\{\[\]`~]*/g, '');
 
-						sendAppMessageEx(SUBREDDIT_QUEUE, {
+						var messageObject = {
 							"title": trimmed_title,
 							"score": thread.score.toString(),
 							"type": thread.is_self ? 0 : 1
-						});
+						}
+
+						if(frontpage)
+						{
+							messageObject["thread_subreddit"] = thread.subreddit;
+						}
+
+						sendAppMessageEx(SUBREDDIT_QUEUE, messageObject);
 
 						threads++;
 
