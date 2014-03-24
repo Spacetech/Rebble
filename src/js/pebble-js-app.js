@@ -255,7 +255,7 @@ function SubredditList_Load()
 
 		for (var i = 0; i < res.length; ++i)
 		{
-			res[i] = res[i].trim();
+			res[i] = res[i].replace(/;/g, '').trim();
 		}
 
 		SubredditList_Send(res);
@@ -596,30 +596,36 @@ Pebble.addEventListener("appmessage", function(e)
 	}
 });
 
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
+function fixedEncodeURIComponent(str)
+{
+	return encodeURIComponent(str).replace(/[!'()]/g, escape).replace(/\*/g, "%2A");
+}
+
 Pebble.addEventListener("showConfiguration", function(e)
 {
 	//console.log("showConfiguration");
 
-	var url = "http://spacetech.github.io/Rebble/index.html?";
+	var url = "https://spacetech.github.io/Rebble/index.html?";
 
 	if(username)
 	{
-		url += encodeURIComponent("username") + "=" + encodeURIComponent(username) + "&";
+		url += fixedEncodeURIComponent("username") + "=" + fixedEncodeURIComponent(username) + "&";
 	}
 	
 	if(password)
 	{
-		url += encodeURIComponent("password") + "=" + encodeURIComponent(password) + "&";
+		url += fixedEncodeURIComponent("password") + "=" + fixedEncodeURIComponent(password) + "&";
 	}
 
 	if(subreddits_enabled)
 	{
-		url += encodeURIComponent("subreddits_enabled") + "=" + encodeURIComponent(subreddits_enabled) + "&";
+		url += fixedEncodeURIComponent("subreddits_enabled") + "=" + fixedEncodeURIComponent(subreddits_enabled) + "&";
 	}
 
 	if(subreddits)
 	{
-		url += encodeURIComponent("subreddits") + "=" + encodeURIComponent(subreddits) + "&";
+		url += fixedEncodeURIComponent("subreddits") + "=" + fixedEncodeURIComponent(subreddits) + "&";
 	}
 
 	url += "dev";
@@ -631,10 +637,12 @@ Pebble.addEventListener("webviewclosed", function(e)
 {
 	//console.log("webviewclosed");
 
-	if(e.response === "")
+	if(e.response === "" || e.response === "CANCELLED")
 	{
 		return;
 	}
+
+	//console.log(e.response);
 
 	var options = JSON.parse(decodeURIComponent(e.response));
 

@@ -3,8 +3,8 @@
 	"shortName": "Rebble",
 	"longName": "Rebble",
 	"companyName": "NegaTech",
-	"versionCode": 3,
-	"versionLabel": "1.1",
+	"versionCode": 4,
+	"versionLabel": "1.1.1",
 	"capabilities": [ "configurable" ],
 	"watchapp":
 	{

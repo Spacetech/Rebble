@@ -86,7 +86,15 @@ static void in_received_handler(DictionaryIterator *iter, void *context)
 
 			if(c == ',')
 			{
-				char *name = nt_Malloc(sizeof(char) * (i - start + 1));
+				int nameLength = i - start;
+				if(nameLength == 0)
+				{
+					// maybe they put in a double comma by mistake, skip this one
+					start = i + 1;
+					continue;
+				}
+
+				char *name = nt_Malloc(sizeof(char) * (nameLength + 1));
 				if(name == NULL)
 				{
 					goto done;
@@ -124,7 +132,7 @@ static void in_received_handler(DictionaryIterator *iter, void *context)
 					user_subreddits = subredditlist_new;
 				}
 
-				//DEBUG_MSG("%s", name);
+				//DEBUG_MSG("Subreddit: '%s', %d", name, subredditlist_num);
 
 				user_subreddits[subredditlist_num - 1] = name;
 
