@@ -4,18 +4,18 @@
 	<title>Rebble Configuration</title>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.1/jquery.mobile-1.4.1.min.css" />
-	<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
-	<script src="http://code.jquery.com/mobile/1.4.1/jquery.mobile-1.4.1.min.js"></script>
+	<link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.1/jquery.mobile-1.4.1.min.css" />
+	<script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+	<script src="https://code.jquery.com/mobile/1.4.1/jquery.mobile-1.4.1.min.js"></script>
 	<script>
 		function setDefaultOptions()
 		{
 			$('#username').val(getURLParameter("username", ""));
 			$('#password').val(getURLParameter("password", ""));
 			$('#subreddits_enabled').prop('checked', parseBool(getURLParameter("subreddits_enabled", "false"))).checkboxradio('refresh');
-			$('#subreddits').val(decodeURIComponent(getURLParameter("subreddits", "")));
+			$('#subreddits').val(getURLParameter("subreddits", ""));
 
-			onSubredditsEnabledChange();
+			//onSubredditsEnabledChange();
 		}
 
 		function parseBool(val)
@@ -36,40 +36,55 @@
 
 		function getURLParameter(name, def)
 		{
-			var value = decodeURI((RegExp(name + '=' + '(.+?)(&|$)').exec(location.search)||[,null])[1]);          
-			if (value == "null")
+			var ret = decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search)||[,""])[1].replace(/\+/g, '%20'))||null;
+			if(ret === null)
 			{
 				return def;
 			}
-			return value;
+			return ret;
 		}
 
+		/*
 		function onSubredditsEnabledChange()
 		{
 			if($("#subreddits_enabled").is(':checked'))
 			{
-				//$('#subreddits').attr("disabled", false);
+				$('#subreddits').attr("disabled", false);
 			}
 			else
 			{
-				//$('#subreddits').attr("disabled", "disabled");
+				$('#subreddits').attr("disabled", "disabled");
 			}
+		}
+		*/
+
+		// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
+		function fixedEncodeURIComponent(str)
+		{
+			return encodeURIComponent(str).replace(/[!'()]/g, escape).replace(/\*/g, "%2A");
 		}
 
 		$().ready(function()
 		{
-			setDefaultOptions();
-			
 			$("#b-cancel").click(function() {
 				document.location = "pebblejs://close";
 			});
 
 			$("#b-save").click(function() {
-				var location = "pebblejs://close#" + encodeURIComponent(JSON.stringify(saveOptions()));
+				var location = "pebblejs://close#" + fixedEncodeURIComponent(JSON.stringify(saveOptions()));
 				document.location = location;
 			});
+			
+			try
+			{
+				setDefaultOptions();
+			}
+			catch(ex)
+			{
 
-			$("#subreddits_enabled").bind("change", onSubredditsEnabledChange);
+			}
+
+			//$("#subreddits_enabled").bind("change", onSubredditsEnabledChange);
 		});
 	</script>
 	<style>
