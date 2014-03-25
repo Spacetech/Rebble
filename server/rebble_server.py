@@ -32,6 +32,8 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 		parsedParams = urlparse.urlparse(self.path)
 		queryParsed = urlparse.parse_qs(parsedParams.query)
 
+		#print queryParsed
+
 		if "url" in queryParsed:
 			url = queryParsed["url"]
 
@@ -87,17 +89,9 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 			image += 1
 
-		print queryParsed
-
-	def processMyRequest(self, query):
-
-		self.send_response(200)
-		self.send_header('Content-Type', 'image/pbi')
-		self.end_headers()
-
-		self.wfile.write("<?xml version='1.0'?>");
-		self.wfile.write("<sample>Some XML</sample>");
-		self.wfile.close();
+		else:
+			self.send_response(404)
+			self.end_headers()
 
 httpd = RebbleServer();
 
