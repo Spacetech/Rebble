@@ -17,16 +17,12 @@ extern struct ThreadData threads[MAX_THREADS];
 uint32_t inboxSize = 0;
 
 bool loadedSubredditList = false;
+bool refreshSubreddit = false;
 
 static void in_received_handler(DictionaryIterator *iter, void *context);
 static void in_dropped_handler(AppMessageResult reason, void *context);
 static void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context);
-
-#ifdef DEBUG_MODE
-static char* app_message_result_to_string(AppMessageResult reason);
-#endif
-
-static void app_message_send_chunk_size();
+static void app_message_send_ready_reply();
 
 static void in_received_handler(DictionaryIterator *iter, void *context)
 {
@@ -63,8 +59,16 @@ static void in_received_handler(DictionaryIterator *iter, void *context)
 
 	if(ready_tuple)
 	{
+		if(ready_tuple->value->uint8 == 2)
+		{
+			refreshSubreddit = true;
+			return;
+		}
+
 		SetLoggedIn(ready_tuple->value->uint8 == 1);
-		app_message_send_chunk_size();
+
+		app_message_send_ready_reply();
+
 		return;
 	}
 
@@ -274,7 +278,7 @@ done_skip:
 }
 
 #ifdef DEBUG_MODE
-static char* app_message_result_to_string(AppMessageResult reason)
+char* app_message_result_to_string(AppMessageResult reason)
 {
 	switch (reason)
 	{
@@ -354,7 +358,7 @@ void app_message_init()
 	app_message_register_inbox_received(in_received_handler);
 	app_message_register_inbox_dropped(in_dropped_handler);
 	app_message_register_outbox_failed(out_failed_handler);
-	
+
 	int max = app_message_inbox_size_maximum();
 
 	inboxSize = max > 1024 ? 1024 : max;
@@ -367,14 +371,30 @@ uint32_t app_message_index_size()
 	return inboxSize;
 }
 
-static void app_message_send_chunk_size()
+static void app_message_send_ready_reply()
 {
-	DictionaryIterator *outbox;
-	app_message_outbox_begin(&outbox);
+	DictionaryIterator *iter;
+	app_message_outbox_begin(&iter);
+
+	if(iter == NULL)
+	{
+		return;
+	}
 
 	uint32_t chunk_size = app_message_index_size() - 8;
 
-	dict_write_int(outbox, CHUNK_SIZE, &chunk_size, sizeof(uint32_t), false);
+	dict_write_int(iter, CHUNK_SIZE, &chunk_size, sizeof(uint32_t), false);
+
+	if(refreshSubreddit)
+	{
+		refreshSubreddit = false;
+		
+		subreddit_load_setup();
+		
+		Tuplet tuple = TupletCString(VIEW_SUBREDDIT, "0");
+
+		dict_write_tuplet(iter, &tuple);
+	}
 
 	app_message_outbox_send();
 }

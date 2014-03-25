@@ -137,7 +137,8 @@ function RedditAPI(url, postdata, success, failure, method)
 			return;
 		}
 
-		//console.log("RedditAPI: Failed to load " + url);
+		//console.log("RedditAPI: Failed to load " + url + ", " + req.status);
+
 		failure(req.responseText);
 	};
 
@@ -145,6 +146,68 @@ function RedditAPI(url, postdata, success, failure, method)
 }
 
 /********************************************************************************/
+
+function IsLoggedIn()
+{
+	return modhash.length !== 0;
+}
+
+function SetLoggedIn(mh, refresh)
+{
+	//console.log("SetLoggedIn! " + mh + ", " + refresh);
+
+	modhash = mh;
+
+	// order matters
+	if(refresh)
+	{
+		sendAppMessageEx(OTHER_QUEUE, {"ready": 2});
+	}
+
+	sendAppMessageEx(OTHER_QUEUE, {"ready": 1});
+}
+
+function RemoveLoggedIn(refresh)
+{
+	//console.log("RemoveLoggedIn: " + refresh);
+
+	modhash = "";
+
+	// order matters
+	if(refresh)
+	{
+		sendAppMessageEx(OTHER_QUEUE, {"ready": 2});
+	}
+
+	sendAppMessageEx(OTHER_QUEUE, {"ready": 0});
+}
+
+function CheckLogin()
+{
+	//console.log("CheckLogin");
+
+	// check if we are already logged in
+	RedditAPI("https://ssl.reddit.com/api/me.json", "",
+		function(responseText)
+		{
+			var response = JSON.parse(responseText);
+			if("data" in response)
+			{
+				SetLoggedIn(response["data"]["modhash"], false);
+			}
+			else
+			{
+				// we aren't logged in
+				Login();
+			}
+		},
+		function(responseText)
+		{
+			// we aren't logged in
+			Login();
+		}, "GET"
+	);
+}
 
 function Login()
 {
@@ -154,8 +217,15 @@ function Login()
 		function(responseText)
 		{
 			var response = JSON.parse(responseText);
-			modhash = response["json"]["data"]["modhash"];
-			sendAppMessageEx(OTHER_QUEUE, {"ready": 1});
+			if("data" in response["json"] && "modhash" in response["json"]["data"])
+			{
+				SetLoggedIn(response["json"]["data"]["modhash"], true);
+			}
+			else
+			{
+				//console.log(responseText);
+				Pebble.showSimpleNotificationOnPebble("Rebble", "Failed to login to reddit. Please check your username and password in the settings dialog.");
+			}
 		},
 		function(responseText)
 		{
@@ -166,17 +236,39 @@ function Login()
 	);
 }
 
-function Logout()
+function Logout(onLogout)
 {
-	modhash = "";
-	sendAppMessageEx(OTHER_QUEUE, {"ready": 0});
+	//console.log("Logout");
+
+	if(!IsLoggedIn())
+	{
+		if(onLogout)
+		{
+			onLogout();
+		}
+		return;
+	}
+
+	var ret = function(responseText) {
+		if(onLogout)
+		{
+			RemoveLoggedIn(false);
+			onLogout();
+		}
+		else
+		{
+			RemoveLoggedIn(true);
+		}
+	};
+
+	RedditAPI("https://ssl.reddit.com/logout", "top=off&uh=" + modhash, ret, ret);
 }
 
 function Thread_Vote(id, dir)
 {
 	//console.log("Thread_Vote");
 
-	if(modhash.length === 0)
+	if(!IsLoggedIn())
 	{
 		return;
 	}
@@ -197,7 +289,7 @@ function Thread_Save(id)
 {
 	//console.log("Thread_Save");
 
-	if(modhash.length === 0)
+	if(!IsLoggedIn())
 	{
 		return;
 	}
@@ -263,7 +355,7 @@ function SubredditList_Load()
 		return;
 	}
 
-	if(modhash.length === 0)
+	if(!IsLoggedIn())
 	{
 		//console.log("Sending default list");
 		SubredditList_Send(default_subreddits.split(","));
@@ -492,10 +584,7 @@ Pebble.addEventListener("ready", function(e)
 	password = localStorage.getItem("password");
 	subreddits_enabled = localStorage.getItem("subreddits_enabled");
 	subreddits = localStorage.getItem("subreddits");
-
 	last_subreddit = localStorage.getItem("last_subreddit");
-
-	modhash = "";
 
 	if(last_subreddit === undefined || last_subreddit === null || last_subreddit === false || last_subreddit === 0 || last_subreddit === "0")
 	{
@@ -536,7 +625,7 @@ Pebble.addEventListener("ready", function(e)
 
 	if(username && password && username.length > 0 && password.length > 0)
 	{
-		Login();
+		CheckLogin();
 	}
 
 	Subreddit_Load(last_subreddit);
@@ -545,12 +634,14 @@ Pebble.addEventListener("ready", function(e)
 Pebble.addEventListener("appmessage", function(e)
 {
 	////console.log(JSON.stringify(e));
+
 	if("chunk_size" in e.payload)
 	{
 		chunkSize = e.payload['chunk_size'];
 		//console.log("Got chunkSize");
 	}
-	else if ("NETIMAGE_URL" in e.payload)
+
+	if ("NETIMAGE_URL" in e.payload)
 	{
 		var url = encodeURIComponent(GetThreadURL(e.payload['NETIMAGE_URL']));
 
@@ -679,11 +770,11 @@ Pebble.addEventListener("webviewclosed", function(e)
 
 		if(username.length === 0 || password.length === 0)
 		{
-			Logout();
+			Logout(null);
 		}
 		else
 		{
-			Login();
+			Logout(Login);
 		}
 	}
 

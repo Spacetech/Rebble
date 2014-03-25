@@ -15,4 +15,8 @@ extern TextLayer *thread_body_layer;
 void app_message_init();
 uint32_t app_message_index_size();
 
+#ifdef DEBUG_MODE
+char* app_message_result_to_string(AppMessageResult reason);
+#endif
+
 #endif
