@@ -7,7 +7,7 @@
 #include "ThreadWindow.h"
 #include "SubredditWindow.h"
 #include "SubredditListWindow.h"
-
+#include "CommentWindow.h"
 #include "netimage.h"
 #include "LoadingWindow.h"
 
@@ -53,6 +53,8 @@ static void in_received_handler(DictionaryIterator *iter, void *context)
 
 	Tuple *thread_body_tuple = dict_find(iter, THREAD_BODY);
 
+	Tuple *thread_comment_tuple = dict_find(iter, THREAD_COMMENT);
+
 	Tuple *user_subreddit_tuple = dict_find(iter, USER_SUBREDDIT);
 
 	Tuple *ready_tuple = dict_find(iter, READY);
@@ -69,6 +71,88 @@ static void in_received_handler(DictionaryIterator *iter, void *context)
 
 		app_message_send_ready_reply();
 
+		return;
+	}
+
+	if(thread_comment_tuple)
+	{
+		DEBUG_MSG("thread_comment_tuple");
+
+		if(!thread_title_tuple || !thread_score_tuple || !thread_id_tuple || !thread_body_tuple || !thread_type_tuple || !user_subreddit_tuple)
+		{
+			// failed to load comment
+			goto comment_load_failure;
+			return;
+		}
+
+		if(current_thread.body != NULL)
+		{
+			nt_Free(current_thread.body);
+			current_thread.body = NULL;
+		}
+
+		if(current_thread.image != NULL)
+		{
+			gbitmap_destroy(current_thread.image);
+			current_thread.image = NULL;
+		}
+
+		if(current_thread.author != NULL)
+		{
+			nt_Free(current_thread.author);
+		}
+
+		if(current_thread.score != NULL)
+		{
+			nt_Free(current_thread.score);
+		}
+
+		if(current_thread.comment != NULL)
+		{
+			nt_Free(current_thread.comment);
+		}
+
+		current_thread.author = (char*)nt_Malloc(sizeof(char) * (strlen(thread_title_tuple->value->cstring) + 1));
+		if(current_thread.author == NULL)
+		{
+			goto comment_load_failure;
+		}		
+
+		current_thread.score = (char*)nt_Malloc(sizeof(char) * (strlen(thread_score_tuple->value->cstring) + 1));
+		if(current_thread.score == NULL)
+		{
+			nt_Free(current_thread.author);
+			goto comment_load_failure;
+		}
+
+		current_thread.comment = (char*)nt_Malloc(sizeof(char) * (strlen(thread_comment_tuple->value->cstring) + 1));
+		if(current_thread.comment == NULL)
+		{
+			nt_Free(current_thread.author);
+			nt_Free(current_thread.score);
+			goto comment_load_failure;
+		}
+
+		strcpy(current_thread.author, thread_title_tuple->value->cstring);
+		strcpy(current_thread.score, thread_score_tuple->value->cstring);
+		strcpy(current_thread.comment, thread_comment_tuple->value->cstring);
+
+		current_thread.depth = thread_type_tuple->value->uint8;
+		current_thread.index = thread_id_tuple->value->uint8;
+		current_thread.max = thread_body_tuple->value->uint8;
+		current_thread.nextDepthPossible = user_subreddit_tuple->value->uint8 == 1 ? true : false;
+
+		comment_load_finished();
+		return;
+
+comment_load_failure:
+
+		if(loading_visible())
+		{
+			loading_disable_dots();
+			loading_set_text("Unable to load comments");
+		}
+		
 		return;
 	}
 
@@ -181,34 +265,10 @@ done_skip:
 		}
 
 		struct ThreadData *thread = &threads[thread_loaded];
-
-		// title
-		if(thread->title != NULL)
-		{
-			nt_Free(thread->title);
-		}
-		thread->title = (char*)nt_Malloc(sizeof(char) * (strlen(thread_title_tuple->value->cstring) + 1));
-
-		// score
-		if(thread->score != NULL)
-		{
-			nt_Free(thread->score);
-		}
-		thread->score = (char*)nt_Malloc(sizeof(char) * (strlen(thread_score_tuple->value->cstring) + 1));
-
-		strcpy(thread->title, thread_title_tuple->value->cstring);
-		strcpy(thread->score, thread_score_tuple->value->cstring);
-
-		// subreddit (only given if we are viewing the frontpage)
-		if(thread->subreddit != NULL)
-		{
-			nt_Free(thread->subreddit);
-		}
-		if(thread_subreddit_tuple != NULL)
-		{
-			thread->subreddit = (char*)nt_Malloc(sizeof(char) * (strlen(thread_subreddit_tuple->value->cstring) + 1));
-			strcpy(thread->subreddit, thread_subreddit_tuple->value->cstring);
-		}
+		
+		SetThreadTitle(thread, thread_loaded, thread_title_tuple->value->cstring);
+		SetThreadScore(thread, thread_loaded, thread_score_tuple->value->cstring);
+		SetThreadSubreddit(thread, thread_loaded, thread_subreddit_tuple ? thread_subreddit_tuple->value->cstring : NULL);
 
 		thread->type = thread_type_tuple->value->uint8;
 
@@ -224,15 +284,10 @@ done_skip:
 			subreddit_selection_changed(false);
 		}
 	}
-	/*else if(thread_id_tuple &&)
-	{
-		// an eror occured
-		//text_layer_set_text(loading_text_layer, "Failed to load subreddit. Long press select to try again.");
-	}*/
 
 	if(thread_id_tuple)
 	{
-		if(thread_body_tuple)
+		if(thread_body_tuple && thread_title_tuple)
 		{
 			if(thread_id_tuple->value->uint8 != GetSelectedThreadID())
 			{
@@ -240,13 +295,40 @@ done_skip:
 				return;
 			}
 
+			// thread body
 			if(current_thread.body != NULL)
 			{
 				nt_Free(current_thread.body);
 			}
 
 			current_thread.body = (char*)nt_Malloc(sizeof(char) * (strlen(thread_body_tuple->value->cstring) + 1));
+			if(current_thread.body == NULL)
+			{
+body_fail:		if(loading_visible())
+				{
+					loading_disable_dots();
+					loading_set_text("Unable to load thread");
+				}
+				return;
+			}
+
 			strcpy(current_thread.body, thread_body_tuple->value->cstring);
+
+			// thread author
+			if(current_thread.thread_author != NULL)
+			{
+				nt_Free(current_thread.thread_author);
+			}
+
+			current_thread.thread_author = (char*)nt_Malloc(sizeof(char) * (strlen(thread_title_tuple->value->cstring) + 1));
+			if(current_thread.thread_author == NULL)
+			{
+				nt_Free(current_thread.body);
+				current_thread.body = NULL;
+				goto body_fail;
+			}
+
+			strcpy(current_thread.thread_author, thread_title_tuple->value->cstring);
 
 			//DEBUG_MSG("filled body, %d", strlen(current_thread.body));
 			//DEBUG_MSG("Thread load...?");
@@ -259,13 +341,16 @@ done_skip:
 			}
 
 			text_layer_set_text(thread_body_layer, current_thread.body);
-			text_layer_set_text_alignment(thread_body_layer, GTextAlignmentLeft);
 
 			GSize size = text_layer_get_content_size(thread_body_layer);
 			size.h += 5;
 			text_layer_set_size(thread_body_layer, size);
 
-			scroll_layer_set_content_size(thread_scroll_layer, GSize(144, 22 + size.h + 5));
+			size.h = window_frame.size.h > size.h ? window_frame.size.h : size.h + 5;
+
+			scroll_layer_set_content_size(thread_scroll_layer, GSize(window_frame.size.w, 22 + size.h + 10));
+
+			thread_update_comments_position();
 		}
 		else
 		{

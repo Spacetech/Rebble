@@ -20,6 +20,8 @@ TextLayer *loading_text_progress_layer;
 char loading_text[3];
 int dots = 0;
 bool dotting = true;
+bool animate = true;
+bool animatePop = false;
 
 static void loading_layer_update_proc(Layer *layer, GContext *ctx);
 static void loading_progress_update(void *data);
@@ -29,7 +31,9 @@ void loading_init()
 	dots = 0;
 	dotting = true;
 
-	window_stack_push(window_loading, true);
+	window_stack_push(window_loading, animate);
+
+	animate = true;
 
 	if(IsBluetoothConnected())
 	{
@@ -44,7 +48,8 @@ void loading_init()
 
 void loading_uninit()
 {
-	window_stack_remove(window_loading, false);
+	window_stack_remove(window_loading, animatePop);
+	animatePop = false;
 }
 
 void loading_window_load(Window *window)
@@ -143,4 +148,14 @@ void loading_disconnected()
 {
 	loading_disable_dots();
 	loading_set_text(CONNECTION_LOST_TEXT);
+}
+
+void loading_disable_animate()
+{
+	animate = false;
+}
+
+void loading_animate_pop()
+{
+	animatePop = true;
 }

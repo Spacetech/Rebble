@@ -8,6 +8,7 @@
 #include "SubredditWindow.h"
 #include "SubredditListWindow.h"
 #include "ThreadMenuWindow.h"
+#include "CommentWindow.h"
 #include "AppMessages.h"
 #include "netimage.h"
 
@@ -16,6 +17,16 @@ bool loggedIn = false;
 int selectedThread = 0;
 AppTimer *timerHandle = NULL;
 NetImageContext *netimage_ctx = NULL;
+
+#ifdef USE_PERSIST_STRINGS
+char persist_index_title = -1;
+char persist_index_score = -1;
+char persist_index_subreddit = -1;
+
+char persist_string_title[PERSIST_STRING_MAX_LENGTH];
+char persist_string_score[PERSIST_STRING_MAX_LENGTH];
+char persist_string_subreddit[PERSIST_STRING_MAX_LENGTH];
+#endif
 
 struct ThreadData threads[MAX_THREADS];
 
@@ -165,17 +176,16 @@ void SaveThread(int index)
     Memory Utilities
 ********************************/
 
+#ifdef DEBUG_MODE
+
 int count = 0;
 
 void *nt_Malloc_Raw(size_t size, const char *function, int line)
 {
-	count++;
-
 	void *pointer = malloc(size);
 
 	if(pointer == NULL)
 	{
-		count--;
 		DEBUG_MSG("nt_Malloc: Failed to mallocc %d", size);
 		DEBUG_MSG("%s: %d", function, line);
 	}
@@ -183,6 +193,8 @@ void *nt_Malloc_Raw(size_t size, const char *function, int line)
 	{
 		//DEBUG_MSG("nt_Malloc: %d, %s: %d", size, function, line);
 	}
+
+	count++;
 
 	return pointer;
 }
@@ -207,6 +219,8 @@ void nt_Stats()
 	DEBUG_MSG("nt_Stats: %d", count);
 }
 
+#endif
+
 /*******************************
     Thread Utilities
 ********************************/
@@ -229,6 +243,103 @@ void SetSelectedThreadID(int index)
 int GetSelectedThreadID()
 {
 	return selectedThread;
+}
+
+char* GetThreadTitle(int index)
+{
+#ifdef USE_PERSIST_STRINGS
+	if(persist_index_title != index)
+	{
+		persist_index_title = index;
+		persist_read_string(PERSIST_OFFSET_THREAD_TITLE + index, persist_string_title, PERSIST_STRING_MAX_LENGTH);
+	}
+	return persist_string_title;
+#else
+	return threads[index].title;
+#endif
+}
+
+char* GetThreadScore(int index)
+{
+#ifdef USE_PERSIST_STRINGS
+	if(persist_index_score != index)
+	{
+		persist_index_score = index;
+		persist_read_string(PERSIST_OFFSET_THREAD_SCORE + index, persist_string_score, PERSIST_STRING_MAX_LENGTH);
+	}
+	return persist_string_score;
+#else
+	return threads[index].score;
+#endif
+}
+
+char* GetThreadSubreddit(int index)
+{
+#ifdef USE_PERSIST_STRINGS
+	if(persist_index_subreddit != index)
+	{
+		persist_index_subreddit = index;
+		if(persist_read_string(PERSIST_OFFSET_THREAD_SUBREDDIT + index, persist_string_subreddit, PERSIST_STRING_MAX_LENGTH) == E_DOES_NOT_EXIST)
+		{
+			return NULL;
+		}
+	}
+	return persist_string_subreddit;
+#else
+	return threads[index].subreddit;
+#endif
+}
+
+void SetThreadTitle(struct ThreadData* thread, int index, char* str)
+{
+#ifdef USE_PERSIST_STRINGS
+	persist_write_string(PERSIST_OFFSET_THREAD_SCORE + index, str);
+#else
+	if(thread->title != NULL)
+	{
+		nt_Free(thread->title);
+	}
+	thread->title = (char*)nt_Malloc(sizeof(char) * (strlen(str) + 1));
+	strcpy(thread->title, str);
+#endif
+}
+
+void SetThreadScore(struct ThreadData* thread, int index, char* str)
+{
+#ifdef USE_PERSIST_STRINGS
+	persist_write_string(PERSIST_OFFSET_THREAD_SCORE + index, str);
+#else
+	if(thread->score != NULL)
+	{
+		nt_Free(thread->score);
+	}
+	thread->score = (char*)nt_Malloc(sizeof(char) * (strlen(str) + 1));
+	strcpy(thread->score, str);
+#endif
+}
+
+void SetThreadSubreddit(struct ThreadData* thread, int index, char* str)
+{
+#ifdef USE_PERSIST_STRINGS
+	if(str != NULL)
+	{
+		persist_write_string(PERSIST_OFFSET_THREAD_SUBREDDIT + index, str);
+	}
+	else
+	{
+		persist_delete(PERSIST_OFFSET_THREAD_SUBREDDIT + index);
+	}
+#else
+	if(thread->subreddit != NULL)
+	{
+		nt_Free(thread->subreddit);
+	}
+	if(str != NULL)
+	{
+		thread->subreddit = (char*)nt_Malloc(sizeof(char) * (strlen(str) + 1));
+		strcpy(thread->subreddit, str);
+	}
+#endif
 }
 
 /*******************************
@@ -347,6 +458,13 @@ inline void windows_create()
 		.load = subredditlist_window_load,
 		.unload = subredditlist_window_unload,
 	});
+
+	window_comment = window_create();
+	window_set_window_handlers(window_comment, (WindowHandlers)
+	{
+		.load = comment_window_load,
+		.unload = comment_window_unload,
+	});
 }
 
 inline void windows_destroy()
@@ -356,25 +474,55 @@ inline void windows_destroy()
 	window_destroy(window_thread);
 	window_destroy(window_threadmenu);
 	window_destroy(window_subreddit);
+	window_destroy(window_comment);
 }
 
 int main()
 {
+	current_thread.author = NULL;
+	current_thread.score = NULL;
 	current_thread.body = NULL;
+	current_thread.comment = NULL;
+	current_thread.image = NULL;
+	current_thread.thread_author = NULL;
 
+#ifndef USE_PERSIST_STRINGS
 	for(int i = 0; i < MAX_THREADS; ++i)
 	{
-		struct ThreadData *thread = GetThread(i);
+		struct ThreadData *thread = GetThread(i);		
 		thread->title = NULL;
 		thread->score = NULL;
 		thread->subreddit = NULL;
 	}
+#endif
 
 	font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
 	biggerFont = fonts_get_system_font(FONT_KEY_GOTHIC_24);
 
 	bluetoothConnected = bluetooth_connection_service_peek();
 	bluetooth_connection_service_subscribe(OnBluetoothConnection);
+
+	/*
+	for(int i=0; i < 20; i++)
+	{
+		char *test = nt_Malloc(PERSIST_STRING_MAX_LENGTH * sizeof(char));
+		strcpy(test, "hey");
+		test[4] = '\0';
+
+		if(persist_exists(i))
+		{
+			test[0] = '\0';
+			persist_read_string(i, test, PERSIST_STRING_MAX_LENGTH);
+			MSG("%d: %s", i, test);
+			persist_delete(i);
+		}
+		//persist_write_string(i, test);
+
+		nt_Free(test);
+	}
+	*/
+
+	//app_comm_set_sniff_interval(SNIFF_INTERVAL_REDUCED);
 
 	///////////////////////////////////////
 
@@ -392,6 +540,7 @@ int main()
 
 	bluetooth_connection_service_unsubscribe();
 
+#ifndef USE_PERSIST_STRINGS
 	for(int i = 0; i < MAX_THREADS; ++i)
 	{
 		struct ThreadData *thread = GetThread(i);
@@ -411,6 +560,12 @@ int main()
 			nt_Free(thread->subreddit);
 		}
 	}
+#endif
+
+	if(current_thread.thread_author != NULL)
+	{
+		nt_Free(current_thread.thread_author);
+	}
 
 	if(user_subreddits != NULL)
 	{
@@ -424,5 +579,7 @@ int main()
 
 	free_netimage();
 
+#ifdef DEBUG_MODE
 	nt_Stats();
+#endif
 }

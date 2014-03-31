@@ -19,4 +19,6 @@ void thread_window_unload(Window *window);
 
 void thread_display_image(GBitmap *image);
 
+void thread_update_comments_position();
+
 #endif

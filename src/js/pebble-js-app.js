@@ -9,7 +9,7 @@ var subreddits_enabled;
 var subreddits;
 var last_subreddit;
 
-var default_subreddits = "adviceanimals,all,AskReddit,aww,bestof,books,earthporn,explainlikeimfive,funny,games,IAmA,movies,music,news,pics,science,technology,television,todayilearned,worldnews";
+var default_subreddits = "all,AskReddit,aww,bestof,books,earthporn,explainlikeimfive,funny,games,IAmA,movies,music,news,pics,science,technology,television,todayilearned,worldnews";
 
 var modhash = "";
 
@@ -23,12 +23,15 @@ var transferInProgressURL = "";
 var threads = 0;
 var loadedThreads = {};
 
+var threadCommentsDepth = null;
+
 var chunkSize = 0;
 
 var SUBREDDIT_QUEUE = "Subreddit";
 var SUBREDDITLIST_QUEUE = "SubredditList";
 var THREAD_QUEUE = "Thread";
 var NET_IMAGE_QUEUE = "NetImage";
+var COMMENT_QUEUE = "Comment";
 var OTHER_QUEUE = "Other";
 
 /*************************************
@@ -83,7 +86,7 @@ function nt_BeginAppMessageQueue(name)
 
 function sendAppMessageEx(name, messageObject)
 {
-	////console.log("sendAppMessageEx: " + nt_AppMessageQueueSize);
+	//console.log("sendAppMessageEx: " + nt_AppMessageQueueSize);
 
 	nt_AppMessageQueueSize[name]++;
 	nt_AppMessageQueue[name].push(messageObject);
@@ -114,6 +117,11 @@ function GetThreadURL(index)
 	return loadedThreads[index].url;
 }
 
+function GetThreadSubreddit(index)
+{
+	return loadedThreads[index].subreddit;
+}
+
 /********************************************************************************/
 
 function RedditAPI(url, postdata, success, failure, method)
@@ -126,7 +134,7 @@ function RedditAPI(url, postdata, success, failure, method)
 
 	req.open(method, url, true);
 	req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-	req.setRequestHeader("User-Agent", "Pebble Rebble App 1.1");
+	req.setRequestHeader("User-Agent", "Pebble Rebble App 1.2");
 
 	req.onload = function(e)
 	{
@@ -405,13 +413,17 @@ function Thread_Load(subreddit, id, index)
 		url = "http://www.reddit.com/r/" + subreddit + "/comments/" + id + ".json";
 	}
 
+	threadCommentsDepth = null;
+
 	RedditAPI(url, null,
 		function(responseText)
 		{
 			var response = JSON.parse(responseText);
-			if (response[0].data)
+
+			var original_post = response[0].data
+			if (original_post)
 			{
-				var children = response[0].data.children;
+				var children = original_post.children;
 
 				var child = children[0].data;
 				var is_self = child["is_self"];
@@ -422,27 +434,164 @@ function Thread_Load(subreddit, id, index)
 
 					//console.log("Text Length: " + selftext.length);
 
-					var trimmed_body = selftext.replace(/[^A-Za-z 0-9 \.,\?""!@#\$%\^&\*\(\)-_=\+;:<>\/\\\|\}\{\[\]`~]*/g, '').substr(0, chunkSize - 32).trim();
+					var trimmed_body = selftext.replace(/[^A-Za-z 0-9 \.,\?""!@#\$%\^&\*\(\)-_=\+;:<>\/\\\|\}\{\[\]`~]*/g, '').substr(0, chunkSize - 128).trim();
 
 					if(trimmed_body.length === 0)
 					{
 						trimmed_body = "Empty self post";
 					}
 
-					sendAppMessageEx(THREAD_QUEUE, {"id": index, "thread_body" : trimmed_body});
+					sendAppMessageEx(THREAD_QUEUE, {
+						"id": index,
+						"title": child["author"],
+						"thread_body" : trimmed_body
+					});
 				}
+
+				//console.log("setting comments");
+
+				threadCommentsDepth = [{
+					"index": 0,
+					"data": response[1].data
+				}];
 			}
 			else
 			{
-				//console.log("no data body");
+				//console.log("Thread_Load no data body");
 			}
 		},
 		function(responseText)
 		{
-
+			//console.log("Thread_Load Failed!");
+			//console.log(responseText);
 		},
 		"GET"
 	);
+}
+
+function Comments_Load(dir)
+{
+	//console.log("Comments_Load: " + dir);
+
+	nt_InitAppMessageQueue(COMMENT_QUEUE);
+
+	if(threadCommentsDepth === null)
+	{
+		// we are probably viewing an image. additional loading must be done.
+		LoadImageComments(dir);
+		return;
+	}
+
+	var depth = threadCommentsDepth.length - 1;
+
+	comments = threadCommentsDepth[depth];
+
+	//console.log("Current Depth: " + depth + ", # of comments: " + comments.data.children.length);
+
+	if(dir == 0)
+	{
+		// next comment for the current depth
+		comments.index++;
+	}
+	else if(dir == 1)
+	{
+		// previous comment for the current depth
+		comments.index--;
+	}
+	else if(dir == 2)
+	{
+		// go deeper
+
+		if(comments.data.children[comments.index].data.replies === "")
+		{
+			return;
+		}
+
+		threadCommentsDepth.push({
+			"index": 0,
+			"data": comments.data.children[comments.index].data.replies.data
+		});
+
+		Comments_Load(-1);
+
+		return;
+	}
+	else if(dir == 3)
+	{
+		// go towards the surface!
+
+		threadCommentsDepth.pop();
+
+		Comments_Load(-1);
+		
+		return;
+	}
+
+	var max_comments = 0;
+	for(var i=0; i < comments.data.children.length; i++)
+	{
+		if(comments.data.children[i].kind === "t1")
+		{
+			max_comments++;
+		}
+	}
+
+	if(comments.index < 0 || comments.index >= max_comments)
+	{
+		//console.log("No comments");
+		sendAppMessageEx(COMMENT_QUEUE, {"comment": "No more comments here"});
+	}
+	else
+	{
+		var commentData = comments.data.children[comments.index].data;
+
+		var replies = commentData.replies;
+		var author = commentData.author;
+		var body = commentData.body;
+
+		var score = "Hidden";
+		if(!commentData.score_hidden)
+		{
+			score = commentData.ups - commentData.downs;
+			score = score.toString();
+		}
+
+		// count next depths comments
+		var count = 0;
+		if(replies !== "")
+		{
+			for(var i=0; i < replies.data.children.length; i++)
+			{
+				if(replies.data.children[i].kind === "t1")
+				{
+					count++;
+				}
+			}
+		}
+
+		// it looks weird because I'm reusing keys.
+		sendAppMessageEx(COMMENT_QUEUE, {
+			"title": author,
+			"score": score,
+			"comment": body.substr(0, chunkSize - 128),
+
+			// current depth
+			"type": depth,
+
+			// current index
+			"id": comments.index,
+
+			// max comments for current depth
+			"thread_body": max_comments,
+
+			// can we go deeper
+			"user_subreddit": count > 0 ? 1 : 0
+		});
+
+		//console.log("SENT " + score + " " + body.length);
+		//console.log("blah " + (count > 0 ? "next depth possible" : "end of the line"));
+		//console.log(body);
+	}
 }
 
 function Subreddit_Load(subreddit, after)
@@ -498,7 +647,7 @@ function Subreddit_Load(subreddit, after)
 					var url = thread.url;
 					if(url.slice(-4) === ".jpg" || url.slice(-5) === ".jpeg" || url.slice(-4) === ".gif" || url.slice(-4) === ".png" || url.slice(-4) === ".bmp")
 					{
-						////console.log("found image: " + url);
+						//console.log("found image: " + url);
 						image = url;
 					}
 
@@ -522,6 +671,11 @@ function Subreddit_Load(subreddit, after)
 						if(frontpage)
 						{
 							messageObject["thread_subreddit"] = thread.subreddit;
+							loadedThreads[threads].subreddit = thread.subreddit;
+						}
+						else
+						{
+							loadedThreads[threads].subreddit = "";
 						}
 
 						sendAppMessageEx(SUBREDDIT_QUEUE, messageObject);
@@ -578,7 +732,7 @@ function Subreddit_Load(subreddit, after)
 
 Pebble.addEventListener("ready", function(e)
 {
-	//console.log("ready " + e.ready);
+	console.log("ready " + e.ready);
 
 	username = localStorage.getItem("username");
 	password = localStorage.getItem("password");
@@ -633,8 +787,9 @@ Pebble.addEventListener("ready", function(e)
 
 Pebble.addEventListener("appmessage", function(e)
 {
-	////console.log(JSON.stringify(e));
-
+	//console.log(JSON.stringify(e.payload));
+try
+{
 	if("chunk_size" in e.payload)
 	{
 		chunkSize = e.payload['chunk_size'];
@@ -643,13 +798,15 @@ Pebble.addEventListener("appmessage", function(e)
 
 	if ("NETIMAGE_URL" in e.payload)
 	{
+		threadCommentsIndex = e.payload['NETIMAGE_URL'];
+
 		var url = encodeURIComponent(GetThreadURL(e.payload['NETIMAGE_URL']));
 
 		transferInProgress = true;
 		transferInProgressURL = url;
 
 		//SendImage("http://core.binghamton.edu:2635/?url=" + url, chunkSize);
-		SendImage("http://garywilber.com:2635/?url=" + url, chunkSize);
+		SendImage("http://garywilber.com:2635/?url=" + url, chunkSize - 8);
 	}
 	else if ("subreddit" in e.payload)
 	{
@@ -689,11 +846,22 @@ Pebble.addEventListener("appmessage", function(e)
 	{
 		SubredditList_Load();
 	}
+	else if("load_comments" in e.payload)
+	{
+		Comments_Load(e.payload.load_comments);
+	}
 	else
 	{
 		//console.log("Bad Message");
 		//console.log(JSON.stringify(e));
 	}
+}
+catch(ex)
+{
+	console.log("Error Detected");
+	console.log(ex);
+}
+
 });
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
@@ -786,14 +954,57 @@ Pebble.addEventListener("webviewclosed", function(e)
 
 /********************************************************************************/
 
+function LoadImageComments(dir)
+{
+	threadCommentsDepth = null;
+
+	var url;
+	if(GetThreadSubreddit(threadCommentsIndex) === "")
+	{
+		url = "http://www.reddit.com/comments/" + GetThreadID(threadCommentsIndex) + ".json";
+	}
+	else
+	{
+		url = "http://www.reddit.com/r/" + GetThreadSubreddit(threadCommentsIndex) + "/comments/" + GetThreadID(threadCommentsIndex) + ".json";
+	}
+	
+	RedditAPI(url, null,
+		function(responseText)
+		{
+			var response = JSON.parse(responseText);
+
+			var original_post = response[0].data
+			if (original_post)
+			{
+				threadCommentsDepth = [{
+					"index": 0,
+					"data": response[1].data
+				}];
+
+				if(dir !== null)
+				{
+					Comments_Load(dir);
+				}
+			}
+		},
+		function(responseText)
+		{
+
+		},
+		"GET"
+	);
+}
+
 function SendImage(url, chunkSize)
 {
-	////console.log("SendImage: " + chunkSize);
+	//console.log("SendImage: " + chunkSize);
 
 	if(chunkSize === 0)
 	{
 		return;
 	}
+
+	LoadImageComments(null);
 
 	nt_InitAppMessageQueue(NET_IMAGE_QUEUE);
 
@@ -813,7 +1024,7 @@ function SendImage(url, chunkSize)
 				bytes.push(byteArray[i]);
 			}
 
-			////console.log("Queuing image with " + byteArray.length + " bytes.");
+			//console.log("Queuing image with " + byteArray.length + " bytes.");
 			
 			sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": bytes.length});
 
@@ -824,7 +1035,7 @@ function SendImage(url, chunkSize)
 
 			sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
 
-			////console.log("Queued image");
+			//console.log("Queued image");
 		}
 		else
 		{

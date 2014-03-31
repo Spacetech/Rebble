@@ -4,7 +4,7 @@
 #include <pebble.h>
 #include "netimage.h"
 
-#define MAX_THREADS 20
+#define MAX_THREADS 15
 #define TITLE_SCROLL_SPEED 100
 
 #define THREAD_LAYER_PADDING 8
@@ -13,6 +13,16 @@
 #define THREAD_WINDOW_HEIGHT 22
 #define THREAD_WINDOW_HEIGHT_SELECTED (THREAD_WINDOW_HEIGHT * 2)
 
+#define LOAD_COMMENTS_HEIGHT 32
+
+//#define USE_PERSIST_STRINGS
+
+#ifdef USE_PERSIST_STRINGS
+#define PERSIST_OFFSET_THREAD_TITLE 4096
+#define PERSIST_OFFSET_THREAD_SCORE 5120
+#define PERSIST_OFFSET_THREAD_SUBREDDIT 6144
+#endif
+
 //#define DEBUG_MODE
 
 #ifdef DEBUG_MODE
@@ -20,6 +30,8 @@
 #else
 	#define DEBUG_MSG(args...)
 #endif
+
+#define MSG(args...) APP_LOG(APP_LOG_LEVEL_DEBUG, args)
 
 enum
 {
@@ -55,21 +67,37 @@ enum
 
 	THREAD_SUBREDDIT = 0x10,
 
-	LAST_DICT_ITEM = 0x11
+	LOAD_COMMENTS = 0x11,
+	THREAD_COMMENT = 0x12,
+
+	LAST_DICT_ITEM = 0x13
 };
 
 struct ThreadData
 {
+#ifndef USE_PERSIST_STRINGS
 	char *title;
 	char *score;
 	char *subreddit;
+#endif
 	unsigned char type;
 	Layer *layer;
 };
 
 struct ViewThreadData
 {
+	// only body & thread_author is actual thread data
+	// the other stuff is for comments
+	char *thread_author;
+	char *score;
 	char *body;
+	char *comment;
+	char *author;
+	GBitmap *image;
+	unsigned char depth;
+	unsigned char index;
+	unsigned char max;
+	bool nextDepthPossible;
 };
 
 extern Window *window_subreddit;
@@ -77,6 +105,7 @@ extern Window *window_subredditlist;
 extern Window *window_thread;
 extern Window *window_threadmenu;
 extern Window *window_loading;
+extern Window *window_comment;
 
 extern int thread_offset;
 
@@ -95,14 +124,24 @@ void UpvoteThread(int index);
 void DownvoteThread(int index);
 void SaveThread(int index);
 
+#ifdef DEBUG_MODE
 void* nt_Malloc_Raw(size_t size, const char* function, int line);
 void nt_Free_Raw(void* pointer);
 void nt_Stats();
+#endif
 
 struct ThreadData* GetThread(int index);
 struct ThreadData* GetSelectedThread();
 void SetSelectedThreadID(int index);
 int GetSelectedThreadID();
+
+char* GetThreadTitle(int index);
+char* GetThreadScore(int index);
+char* GetThreadSubreddit(int index);
+
+void SetThreadTitle(struct ThreadData* thread, int index, char* str);
+void SetThreadScore(struct ThreadData* thread, int index, char* str);
+void SetThreadSubreddit(struct ThreadData* thread, int index, char* str);
 
 void init_netimage(int index);
 void callback_netimage(GBitmap *image);
