@@ -141,12 +141,12 @@ function RedditAPI(url, postdata, success, failure, method)
 	{
 		if (req.readyState === 4 && req.status === 200)
 		{
-			console.log("RedditAPI: Loaded " + url);
+			// console.log("RedditAPI: Loaded " + url);
 			success(req.responseText);
 			return;
 		}
 
-		console.log("RedditAPI: Failed to load " + url + ", " + req.status);
+		// console.log("RedditAPI: Failed to load " + url + ", " + req.status);
 
 		failure(req.responseText);
 	};
