@@ -134,18 +134,19 @@ function RedditAPI(url, postdata, success, failure, method)
 
 	req.open(method, url, true);
 	req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-	req.setRequestHeader("User-Agent", "Pebble Rebble App 1.2");
+	req.setRequestHeader("User-Agent", "Pebble Rebble App 1.3");
+	req.setRequestHeader("X-Modhash", modhash)
 
 	req.onload = function(e)
 	{
 		if (req.readyState === 4 && req.status === 200)
 		{
-			//console.log("RedditAPI: Loaded " + url);
+			console.log("RedditAPI: Loaded " + url);
 			success(req.responseText);
 			return;
 		}
 
-		//console.log("RedditAPI: Failed to load " + url + ", " + req.status);
+		console.log("RedditAPI: Failed to load " + url + ", " + req.status);
 
 		failure(req.responseText);
 	};
@@ -227,6 +228,7 @@ function Login()
 			var response = JSON.parse(responseText);
 			if("data" in response["json"] && "modhash" in response["json"]["data"])
 			{
+				console.log(response["json"]["data"]);
 				SetLoggedIn(response["json"]["data"]["modhash"], true);
 			}
 			else
@@ -370,7 +372,7 @@ function SubredditList_Load()
 		return;
 	}
 
-	RedditAPI("https://ssl.reddit.com/subreddits/mine/subscriber.json", "uh=" + modhash + "&api_type=json",
+	RedditAPI("https://ssl.reddit.com/subreddits/mine/subscriber.json", "",
 		function(responseText)
 		{
 			var response = JSON.parse(responseText);
@@ -393,7 +395,8 @@ function SubredditList_Load()
 		function(responseText)
 		{
 			SubredditList_Load();
-		}
+		},
+		"GET"
 	);
 }
 
