@@ -3,8 +3,8 @@
   "shortName": "Rebble",
   "longName": "Rebble",
   "companyName": "NegaTech",
-  "versionCode": 7,
-  "versionLabel": "1.3",
+  "versionCode": 8,
+  "versionLabel": "1.4",
   "capabilities": [
     "configurable"
   ],
