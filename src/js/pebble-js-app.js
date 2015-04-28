@@ -809,7 +809,8 @@ try
 		transferInProgressURL = url;
 
 		//SendImage("http://core.binghamton.edu:2635/?url=" + url, chunkSize);
-		SendImage("http://garywilber.com:2635/?url=" + url, chunkSize - 8);
+		//SendImage("http://garywilber.com:2635/?url=" + url, chunkSize - 8);
+		SendImage("http://rebble.azurewebsites.net/?url=" + url, chunkSize - 8);
 	}
 	else if ("subreddit" in e.payload)
 	{
