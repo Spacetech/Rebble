@@ -253,6 +253,8 @@ done_skip:
 
 	if(thread_title_tuple && thread_score_tuple && thread_type_tuple)
 	{
+		DEBUG_MSG("subreddit thread tuple");
+
 		if(thread_loaded >= MAX_THREADS)
 		{
 			//DEBUG_MSG("got too many..");
@@ -280,7 +282,6 @@ done_skip:
 		
 		if(thread_loaded == 1)
 		{
-			layer_set_hidden(inverter_layer_get_layer(inverter_layer), false);
 			subreddit_selection_changed(false);
 		}
 	}

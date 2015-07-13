@@ -7,7 +7,6 @@ extern char* *user_subreddits;
 extern int subredditlist_num;
 extern int thread_loaded;
 extern ScrollLayer *subreddit_scroll_layer;
-extern InverterLayer *inverter_layer;
 extern TextLayer *loading_text_layer;
 extern ScrollLayer *thread_scroll_layer;
 extern TextLayer *thread_body_layer;

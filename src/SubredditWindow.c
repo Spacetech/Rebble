@@ -20,7 +20,6 @@ GRect sub_score_rect;
 GRect sub_subreddit_rect;
 GSize text_size;
 
-InverterLayer *inverter_layer;
 Layer *thread_sub_layer;
 Layer *thread_load_more_layer;
 Layer *thread_refresh_layer;
@@ -86,10 +85,6 @@ void subreddit_window_load(Window *window)
 	scroll_layer_add_child(subreddit_scroll_layer, thread_load_more_layer);
 	*(int*)layer_get_data(thread_load_more_layer) = MAX_THREADS;
 
-	inverter_layer = inverter_layer_create(GRect(0, 0, window_frame.size.w, THREAD_WINDOW_HEIGHT_SELECTED + THREAD_LAYER_PADDING));
-	scroll_layer_add_child(subreddit_scroll_layer, inverter_layer_get_layer(inverter_layer));
-	layer_set_hidden(inverter_layer_get_layer(inverter_layer), true);
-
 	scroll_layer_set_content_size(subreddit_scroll_layer, GSize(window_frame.size.w, 0));
 	scroll_layer_set_content_offset(subreddit_scroll_layer, GPoint(0, 0), false);
 
@@ -123,7 +118,6 @@ void subreddit_window_unload(Window *window)
  	layer_destroy(thread_load_more_layer);
 	layer_destroy(thread_sub_layer);
 
-	inverter_layer_destroy(inverter_layer);
 	scroll_layer_destroy(subreddit_scroll_layer);
 }
 
@@ -141,12 +135,14 @@ static void subreddit_click_config_provider(void *context)
 
 static void subreddit_layer_update_proc(Layer *layer, GContext *ctx)
 {
-	graphics_context_set_text_color(ctx, GColorBlack);
-
 	void *data = layer_get_data(layer);
 	int index = *(int*)data;
 
 	struct ThreadData *thread = NULL;
+
+	bool isSelected = index == GetSelectedThreadID();
+
+	graphics_context_set_text_color(ctx, isSelected ? GColorWhite : GColorBlack);
 
 draw_text:
 	if(index == -1 || index == MAX_THREADS || thread != NULL)
@@ -162,9 +158,9 @@ draw_text:
 		goto draw_text;
 	}
 
-	GRect rect = GRect(0, 0, window_frame.size.w, THREAD_WINDOW_HEIGHT);
+	GRect rect = GRect(THREAD_LAYER_PADDING_TEXT_LEFT, 0, window_frame.size.w, THREAD_WINDOW_HEIGHT);
 
-	if(index == GetSelectedThreadID())
+	if(isSelected)
 	{
 		rect.origin.x -= thread_offset;
 		rect.size.w += thread_offset;
@@ -181,8 +177,8 @@ static void subreddit_sub_layer_update_proc(Layer *layer, GContext *ctx)
 		return;
 	}
 
-	graphics_context_set_fill_color(ctx, GColorBlack);
-	graphics_context_set_text_color(ctx, GColorBlack);
+	graphics_context_set_fill_color(ctx, GColorWhite);
+	graphics_context_set_text_color(ctx, GColorWhite);
 
 	graphics_draw_bitmap_in_rect(ctx, bitmap_upvote, GRect(5, 5, 12, 15));
 
@@ -209,9 +205,17 @@ static void subreddit_scroll_layer_update_proc(Layer *layer, GContext *ctx)
 		max++;
 	}
 
+	graphics_context_set_fill_color(ctx, GColorBlack);
+
 	for(int i=-1; i < max; i++)
 	{
-		y += (GetSelectedThreadID() == i ? THREAD_WINDOW_HEIGHT_SELECTED : THREAD_WINDOW_HEIGHT);
+		bool isSelected = GetSelectedThreadID() == i;
+		if(isSelected)
+		{
+			graphics_fill_rect(ctx, GRect(0, y - THREAD_LAYER_PADDING_HALF, window_frame.size.w, THREAD_LAYER_PADDING + THREAD_WINDOW_HEIGHT_SELECTED), 0, GCornerNone);
+		}
+
+		y += (isSelected ? THREAD_WINDOW_HEIGHT_SELECTED : THREAD_WINDOW_HEIGHT);
 		y += THREAD_LAYER_PADDING_HALF;
 		graphics_draw_line(ctx, GPoint(0, y), GPoint(window_frame.size.w, y));
 		y += THREAD_LAYER_PADDING_HALF;
@@ -235,7 +239,6 @@ void subreddit_hide_load_more()
 	if(GetSelectedThreadID() == index)\
 	{\
 		height = THREAD_WINDOW_HEIGHT_SELECTED;\
-		layer_set_frame(inverter_layer_get_layer(inverter_layer), GRect(0, y - THREAD_LAYER_PADDING_HALF, window_frame.size.w, height + THREAD_LAYER_PADDING));\
 	}\
 	layer_set_frame(layer, GRect(0, y, window_frame.size.w, height));\
 	y += height + THREAD_LAYER_PADDING;

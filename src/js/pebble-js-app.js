@@ -9,7 +9,8 @@ var subreddits_enabled;
 var subreddits;
 var last_subreddit;
 
-var default_subreddits = "all,AskReddit,aww,bestof,books,earthporn,explainlikeimfive,funny,games,IAmA,movies,music,news,pics,science,technology,television,todayilearned,worldnews";
+var redditUrl = "https://www.reddit.com";
+var default_subreddits = "all,AskReddit,aww,bestof,books,earthporn,explainlikeimfive,funny,games,IAmA,movies,music,news,pics,science,technology,television,todayilearned,tifu";
 
 var modhash = "";
 
@@ -132,7 +133,7 @@ function RedditAPI(url, postdata, success, failure, method)
 
 	var method = method || "POST";
 
-	req.open(method, url, true);
+	req.open(method, redditUrl + "/" + url, true);
 	req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 	req.setRequestHeader("User-Agent", "Pebble Rebble App 1.3");
 	req.setRequestHeader("X-Modhash", modhash)
@@ -196,7 +197,7 @@ function CheckLogin()
 	//console.log("CheckLogin");
 
 	// check if we are already logged in
-	RedditAPI("https://ssl.reddit.com/api/me.json", "",
+	RedditAPI("api/me.json", "",
 		function(responseText)
 		{
 			var response = JSON.parse(responseText);
@@ -222,13 +223,13 @@ function Login()
 {
 	//console.log("Login");
 
-	RedditAPI("https://ssl.reddit.com/api/login", "user=" + encodeURIComponent(username) + "&passwd=" + encodeURIComponent(password) + "&api_type=json",
+	RedditAPI("api/login", "user=" + encodeURIComponent(username) + "&passwd=" + encodeURIComponent(password) + "&api_type=json",
 		function(responseText)
 		{
 			var response = JSON.parse(responseText);
 			if("data" in response["json"] && "modhash" in response["json"]["data"])
 			{
-				console.log(response["json"]["data"]);
+				//console.log(response["json"]["data"]);
 				SetLoggedIn(response["json"]["data"]["modhash"], true);
 			}
 			else
@@ -271,7 +272,7 @@ function Logout(onLogout)
 		}
 	};
 
-	RedditAPI("https://ssl.reddit.com/logout", "top=off&uh=" + modhash, ret, ret);
+	RedditAPI("logout", "top=off&uh=" + modhash, ret, ret);
 }
 
 function Thread_Vote(id, dir)
@@ -283,7 +284,7 @@ function Thread_Vote(id, dir)
 		return;
 	}
 
-	RedditAPI("https://ssl.reddit.com/api/vote", "dir=" + encodeURIComponent(dir) + "&id=" + encodeURIComponent(GetThreadName(id)) + "&uh=" + modhash + "&api_type=json",
+	RedditAPI("api/vote", "dir=" + encodeURIComponent(dir) + "&id=" + encodeURIComponent(GetThreadName(id)) + "&uh=" + modhash + "&api_type=json",
 		function(responseText)
 		{
 			//console.log(responseText);
@@ -304,7 +305,7 @@ function Thread_Save(id)
 		return;
 	}
 
-	RedditAPI("https://ssl.reddit.com/api/save", "uh=" + modhash + "&id=" + encodeURIComponent(GetThreadName(id)) + "&api_type=json",
+	RedditAPI("api/save", "uh=" + modhash + "&id=" + encodeURIComponent(GetThreadName(id)) + "&api_type=json",
 		function(responseText)
 		{
 			//console.log(responseText);
@@ -372,7 +373,7 @@ function SubredditList_Load()
 		return;
 	}
 
-	RedditAPI("https://ssl.reddit.com/subreddits/mine/subscriber.json", "",
+	RedditAPI("subreddits/mine/subscriber.json", "",
 		function(responseText)
 		{
 			var response = JSON.parse(responseText);
@@ -409,11 +410,11 @@ function Thread_Load(subreddit, id, index)
 	var url;
 	if(subreddit === "")
 	{
-		url = "http://www.reddit.com/comments/" + id + ".json";
+		url = "comments/" + id + ".json";
 	}
 	else
 	{
-		url = "http://www.reddit.com/r/" + subreddit + "/comments/" + id + ".json";
+		url = "r/" + subreddit + "/comments/" + id + ".json";
 	}
 
 	threadCommentsDepth = null;
@@ -610,11 +611,11 @@ function Subreddit_Load(subreddit, after)
 	if(subreddit === "")
 	{
 		frontpage = true;
-		url = "http://www.reddit.com/hot.json?limit=100";
+		url = "hot.json?limit=100";
 	}
 	else
 	{
-		url = "http://www.reddit.com/r/" + subreddit + "/hot.json?limit=100";
+		url = "r/" + subreddit + "/hot.json?limit=100";
 	}
 
 	if(after !== undefined)
@@ -680,6 +681,8 @@ function Subreddit_Load(subreddit, after)
 						{
 							loadedThreads[threads].subreddit = "";
 						}
+
+						//console.log("loadedThreads " + threads + ", " + thread.title);
 
 						sendAppMessageEx(SUBREDDIT_QUEUE, messageObject);
 
@@ -965,11 +968,11 @@ function LoadImageComments(dir)
 	var url;
 	if(GetThreadSubreddit(threadCommentsIndex) === "")
 	{
-		url = "http://www.reddit.com/comments/" + GetThreadID(threadCommentsIndex) + ".json";
+		url = "comments/" + GetThreadID(threadCommentsIndex) + ".json";
 	}
 	else
 	{
-		url = "http://www.reddit.com/r/" + GetThreadSubreddit(threadCommentsIndex) + "/comments/" + GetThreadID(threadCommentsIndex) + ".json";
+		url = "r/" + GetThreadSubreddit(threadCommentsIndex) + "/comments/" + GetThreadID(threadCommentsIndex) + ".json";
 	}
 	
 	RedditAPI(url, null,

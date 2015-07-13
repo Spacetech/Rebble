@@ -18,9 +18,8 @@ ScrollLayer *thread_scroll_layer;
 Layer *thread_title_layer;
 TextLayer *thread_body_layer = NULL;
 TextLayer *thread_view_comments_layer;
-InverterLayer *thread_inverter_layer;
 
-bool thread_inverter_hidden;
+bool thread_view_comments_selected;
 
 BitmapLayer *thread_bitmap_layer;
 
@@ -94,10 +93,7 @@ void thread_window_load(Window *window)
 	text_layer_set_text_alignment(thread_view_comments_layer, GTextAlignmentCenter);
 	scroll_layer_add_child(thread_scroll_layer, text_layer_get_layer(thread_view_comments_layer));
 
-	thread_inverter_hidden = true;
-	thread_inverter_layer = inverter_layer_create(GRect(0, 0, window_frame.size.w, LOAD_COMMENTS_HEIGHT));
-	layer_set_hidden(inverter_layer_get_layer(thread_inverter_layer), true);
-	scroll_layer_add_child(thread_scroll_layer, inverter_layer_get_layer(thread_inverter_layer));
+	thread_view_comments_selected = false;
 
 	if(thread->type == 1)
 	{
@@ -172,7 +168,6 @@ void thread_window_unload(Window *window)
 		thread_bitmap_layer = NULL;
 	}
 
-	inverter_layer_destroy(thread_inverter_layer);
 	text_layer_destroy(thread_view_comments_layer);
 	scroll_layer_destroy(thread_scroll_layer);
 }
@@ -210,15 +205,12 @@ static void thread_offset_changed_handler(ScrollLayer *scroll_layer, void *conte
 {
 	GPoint offset = scroll_layer_get_content_offset(scroll_layer);
 
-	bool hide = (scroll_layer_size.h + offset.y - window_frame.size.h) > THREAD_WINDOW_HEIGHT;
-	if(thread_inverter_hidden != hide)
+	bool selected = (scroll_layer_size.h + offset.y - window_frame.size.h) <= THREAD_WINDOW_HEIGHT;
+	if(thread_view_comments_selected != selected)
 	{
-		thread_inverter_hidden = hide;
-		layer_set_hidden(inverter_layer_get_layer(thread_inverter_layer), thread_inverter_hidden);
-		if(!hide)
-		{
-			layer_set_frame(inverter_layer_get_layer(thread_inverter_layer), layer_get_frame(text_layer_get_layer(thread_view_comments_layer)));
-		}
+		thread_view_comments_selected = selected;
+		text_layer_set_text_color(thread_view_comments_layer, thread_view_comments_selected ? GColorWhite : GColorBlack);
+		text_layer_set_background_color(thread_view_comments_layer, thread_view_comments_selected ? GColorBlack : GColorWhite);
 	}
 }
 
@@ -242,7 +234,7 @@ static void thread_button_up(ClickRecognizerRef recognizer, void *context)
 
 static void thread_button_select(ClickRecognizerRef recognizer, void *context)
 {
-	if(!thread_inverter_hidden)
+	if(thread_view_comments_selected)
 	{
 		comment_load(-1);
 	}
@@ -274,21 +266,21 @@ static void thread_scroll_timer_callback(void *data)
 	if(thread_offset_reset)
 	{
 		thread_offset_reset = false;
-		thread_offset = 0;
+		thread_offset = -THREAD_WINDOW_PADDING_TEXT_LEFT;
 	}
 	else
 	{
 		thread_offset += 4;
 	}
 
-	if(text_size.w - thread_offset < window_frame.size.w)
+	if(text_size.w - thread_offset - THREAD_WINDOW_PADDING_TEXT_LEFT < window_frame.size.w)
 	{
 		thread_offset_reset = true;
 		init_timer(app_timer_register(1000, thread_scroll_timer_callback, NULL));
 	}
 	else
 	{
-		init_timer(app_timer_register(thread_offset == 0 ? 1000 : TITLE_SCROLL_SPEED, thread_scroll_timer_callback, NULL));
+		init_timer(app_timer_register(thread_offset == -THREAD_WINDOW_PADDING_TEXT_LEFT ? 1000 : TITLE_SCROLL_SPEED, thread_scroll_timer_callback, NULL));
 	}
 
 	layer_mark_dirty(thread_title_layer);
