@@ -154,14 +154,11 @@ static void comment_button_back(ClickRecognizerRef recognizer, void *context)
 	{
 		// it should look like you're going back
 		window_stack_pop(true);
-		loading_disable_animate();
 		thread_load();
 	}
 	else
 	{
 		current_thread.depth--;
-		loading_disable_animate();
-		loading_animate_pop();
 		comment_load(3);
 	}
 }
@@ -174,7 +171,6 @@ static void comment_button_up(ClickRecognizerRef recognizer, void *context)
 	}
 	else
 	{
-		loading_disable_animate();
 		comment_load(1);
 	}
 }
@@ -192,7 +188,6 @@ static void comment_button_down(ClickRecognizerRef recognizer, void *context)
 	}
 	else
 	{
-		loading_disable_animate();
 		comment_load(0);
 	}
 }

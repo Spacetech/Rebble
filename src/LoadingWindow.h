@@ -15,8 +15,6 @@ void loading_window_unload(Window *window);
 bool loading_visible();
 void loading_set_text(char *loadingText);
 void loading_disable_dots();
-void loading_disable_animate();
-void loading_animate_pop();
 
 void loading_disconnected();
 
