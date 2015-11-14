@@ -30,15 +30,15 @@ char persist_string_subreddit[PERSIST_STRING_MAX_LENGTH];
 
 struct ThreadData threads[MAX_THREADS];
 
-GFont *font = NULL;
-GFont *biggerFont = NULL;
+GFont font = NULL;
+GFont biggerFont = NULL;
 
-GFont *GetFont()
+GFont GetFont()
 {
 	return font;
 }
 
-GFont *GetBiggerFont()
+GFont GetBiggerFont()
 {
 	return biggerFont;
 }

@@ -113,8 +113,8 @@ extern int thread_offset;
 
 extern struct ViewThreadData current_thread;
 
-GFont* GetFont();
-GFont* GetBiggerFont();
+GFont GetFont();
+GFont GetBiggerFont();
 
 bool IsLoggedIn();
 void SetLoggedIn(bool lin);
