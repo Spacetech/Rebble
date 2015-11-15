@@ -806,14 +806,14 @@ try
 	{
 		threadCommentsIndex = e.payload['NETIMAGE_URL'];
 
-		var url = encodeURIComponent(GetThreadURL(e.payload['NETIMAGE_URL']));
+		var url = GetThreadURL(e.payload['NETIMAGE_URL']);
 
 		transferInProgress = true;
 		transferInProgressURL = url;
 
 		//SendImage("http://core.binghamton.edu:2635/?url=" + url, chunkSize);
 		//SendImage("http://garywilber.com:2635/?url=" + url, chunkSize - 8);
-		SendImage("https://rebble.azurewebsites.net/?url=" + url, chunkSize - 8);
+		SendImage(url, chunkSize - 8);
 	}
 	else if ("subreddit" in e.payload)
 	{
@@ -1015,48 +1015,5 @@ function SendImage(url, chunkSize)
 
 	nt_InitAppMessageQueue(NET_IMAGE_QUEUE);
 
-	var req = new XMLHttpRequest();
-	req.open("GET", url, true);
-	req.responseType = "arraybuffer";
-	req.onload = function(e)
-	{
-		var buf = req.response;
-		if(req.status == 200 && buf)
-		{
-			var byteArray = new Uint8Array(buf);
-
-			var bytes = [];
-			for(var i=0; i < byteArray.byteLength; i++)
-			{
-				bytes.push(byteArray[i]);
-			}
-
-			//console.log("Queuing image with " + byteArray.length + " bytes.");
-			
-			sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": bytes.length});
-
-			for(var i=0; i < bytes.length; i += chunkSize)
-			{
-				sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_DATA": bytes.slice(i, i + chunkSize)});
-			}
-
-			sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
-
-			//console.log("Queued image");
-		}
-		else
-		{
-			//console.log("Request status is " + req.status);
-			sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": 0});
-			sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
-		}
-	}
-	req.onerror = function(e)
-	{
-		//SendImage(url, chunkSize);
-		sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": 0});
-		sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});		
-	}
-
-	req.send(null);
+	getImage(url, chunkSize);
 }

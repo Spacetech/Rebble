@@ -92,7 +92,11 @@ void netimage_receive(DictionaryIterator *iter)
 		case NETIMAGE_END:
 			if (ctx->data && ctx->length > 0 && ctx->index > 0)
 			{
-				GBitmap *bitmap = gbitmap_create_with_data(ctx->data);
+				#ifdef PBL_BW
+					GBitmap *bitmap = gbitmap_create_with_data(ctx->data);
+				#else
+					GBitmap *bitmap = gbitmap_create_from_png_data(ctx->data, ctx->length);
+				#endif
 				nt_Free(ctx->data);
 				if (bitmap)
 				{

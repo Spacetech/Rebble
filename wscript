@@ -22,6 +22,9 @@ def build(ctx):
     build_worker = os.path.exists('worker_src')
     binaries = []
 
+    ctx(rule=generate_appinfo_js, source='appinfo.json', target='appinfo.js')
+    ctx(rule='cat ${SRC} > ${TGT}', source=['appinfo.js'] + ctx.path.ant_glob('src/js/**/*.js'), target='pebble-js-app.js')
+
     for p in ctx.env.TARGET_PLATFORMS:
         ctx.set_env(ctx.all_envs[p])
         ctx.set_group(ctx.env.PLATFORM_NAME)
@@ -38,4 +41,17 @@ def build(ctx):
             binaries.append({'platform': p, 'app_elf': app_elf})
 
     ctx.set_group('bundle')
-    ctx.pbl_bundle(binaries=binaries, js=ctx.path.ant_glob('src/js/**/*.js'))
+    ctx.pbl_bundle(binaries=binaries, js='pebble-js-app.js')
+
+
+def generate_appinfo_js(task):
+  src = task.inputs[0].abspath()
+  target = task.outputs[0].abspath()
+  data = open(src).read().strip()
+
+  f = open(target, 'w')
+  f.write('/* exported AppInfo */\n\n')
+  f.write('var AppInfo = ')
+  f.write(data)
+  f.write(';')
+  f.close()
