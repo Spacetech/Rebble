@@ -11,4 +11,6 @@ void comment_init();
 void comment_window_load(Window *window);
 void comment_window_unload(Window *window);
 
+TextLayer* comment_body_layer_create();
+
 #endif
