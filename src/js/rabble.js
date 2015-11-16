@@ -1,191 +1,261 @@
-var DOWNLOAD_TIMEOUT = 20000;
+var imageNumber = 0;
+var xhrTimeout = null;
+var DOWNLOAD_TIMEOUT = 10000;
 
-function sendBitmap(bitmap, chunkSize){
-  sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": bitmap.length});
+function sendBitmap(bitmap, chunkSize, thisImageNumber) {
+	if (imageNumber !== thisImageNumber) {
+		console.log("image number mismatch: " + imageNumber + ", " + thisImageNumber);
+		return;
+	}
 
-  for(var i=0; i < bitmap.length; i += chunkSize){
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_DATA": bitmap.slice(i, i + chunkSize)});
-  }
+	if (xhrTimeout === null) {
+		return;
+	}
 
-  sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
+	clearTimeout(xhrTimeout);
+	xhrTimeout = null;
+
+	sendAppMessageEx(NET_IMAGE_QUEUE, {
+		"NETIMAGE_BEGIN": bitmap.length
+	});
+
+	for (var i = 0; i < bitmap.length; i += chunkSize) {
+		sendAppMessageEx(NET_IMAGE_QUEUE, {
+			"NETIMAGE_DATA": bitmap.slice(i, i + chunkSize)
+		});
+	}
+
+	sendAppMessageEx(NET_IMAGE_QUEUE, {
+		"NETIMAGE_END": "done"
+	});
 }
 
-function convertImage(rgbaPixels, numComponents, width, height){
+function sendFailure(error, thisImageNumber) {
+	console.log("sendFailure: " + error);
 
-  var watch_info;
-  if(Pebble.getActiveWatchInfo) {
-    watch_info = Pebble.getActiveWatchInfo() || { 'platform' : 'aplite'};
-  } else {
-    watch_info = { 'platform' : 'aplite'};
-  }
+	if (imageNumber !== thisImageNumber) {
+		console.log("image number mismatch: " + imageNumber + ", " + thisImageNumber);
+		return;
+	}
 
-  var ratio = Math.min(144 / width,168 / height);
-  var ratio = Math.min(ratio,1);
+	if (xhrTimeout !== null) {
+		clearTimeout(xhrTimeout);
+		xhrTimeout = null;
+	}
 
-  var final_width = Math.floor(width * ratio);
-  var final_height = Math.floor(height * ratio);
-  var final_pixels = [];
-  var bitmap = [];
-
-  if(watch_info.platform === 'aplite') {
-    var grey_pixels = greyScale(rgbaPixels, width, height, numComponents);
-    ScaleRect(final_pixels, grey_pixels, width, height, final_width, final_height, 1);
-    floydSteinberg(final_pixels, final_width, final_height, pebble_nearest_color_to_black_white);
-    bitmap = toPBI(final_pixels, final_width, final_height);
-  }
-  else {
-    ScaleRect(final_pixels, rgbaPixels, width, height, final_width, final_height, numComponents);
-    floydSteinberg(final_pixels, final_width, final_height, pebble_nearest_color_to_pebble_palette);
-    var png = generatePngForPebble(final_width, final_height, final_pixels);
-    for(var i=0; i<png.length; i++){
-      bitmap.push(png.charCodeAt(i));
-    }
-  }
-
-  return bitmap;
+	sendAppMessageEx(NET_IMAGE_QUEUE, {
+		"NETIMAGE_BEGIN": 0
+	});
+	sendAppMessageEx(NET_IMAGE_QUEUE, {
+		"NETIMAGE_END": "done"
+	});
 }
 
-function getPbiImage(url, chunkSize){
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
-  xhr.responseType = "arraybuffer";
-  xhr.onload = function() {
-    if(xhr.status == 200 && xhr.response) {
-      clearTimeout(xhrTimeout); // got response, no more need in timeout
-      var data = new Uint8Array(xhr.response);
-      var bitmap = [];
-      for(var i=0; i<data.byteLength; i++) {
-        bitmap.push(data[i]);
-      }
-      sendBitmap(bitmap, chunkSize);
-    } else {
-      sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": 0});
-      sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
-    }
-  };
+function convertImage(rgbaPixels, numComponents, width, height) {
 
-  var xhrTimeout = setTimeout(function() {
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": 0});
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
-  }, DOWNLOAD_TIMEOUT);
+	var watch_info;
+	if (Pebble.getActiveWatchInfo) {
+		watch_info = Pebble.getActiveWatchInfo() || {
+			'platform': 'aplite'
+		};
 
-  xhr.send(null);
+	} else {
+		watch_info = {
+			'platform': 'aplite'
+		};
+	}
+
+	var ratio = Math.min(144 / width, 168 / height);
+	var ratio = Math.min(ratio, 1);
+
+	var final_width = Math.floor(width * ratio);
+	var final_height = Math.floor(height * ratio);
+	var final_pixels = [];
+	var bitmap = [];
+
+	if (watch_info.platform === 'aplite') {
+		var grey_pixels = greyScale(rgbaPixels, width, height, numComponents);
+
+		ScaleRect(final_pixels, grey_pixels, width, height, final_width, final_height, 1);
+		floydSteinberg(final_pixels, final_width, final_height, pebble_nearest_color_to_black_white);
+
+		bitmap = toPBI(final_pixels, final_width, final_height);
+
+	} else {
+		ScaleRect(final_pixels, rgbaPixels, width, height, final_width, final_height, numComponents);
+		floydSteinberg(final_pixels, final_width, final_height, pebble_nearest_color_to_pebble_palette);
+
+		var png = generatePngForPebble(final_width, final_height, final_pixels);
+
+		for (var i = 0; i < png.length; i++) {
+			bitmap.push(png.charCodeAt(i));
+		}
+	}
+
+	return bitmap;
 }
 
-function getGifImage(url, chunkSize){
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
-  xhr.responseType = "arraybuffer";
-  xhr.onload = function() {
-    clearTimeout(xhrTimeout); // got response, no more need in timeout
+function getPbiImage(url, chunkSize, imageNumber) {
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET", url, true);
+	xhr.responseType = "arraybuffer";
+	xhr.onload = function() {
+		if (xhr.status == 200 && xhr.response) {
+			var data = new Uint8Array(xhr.response);
+			var bitmap = [];
+			for (var i = 0; i < data.byteLength; i++) {
+				bitmap.push(data[i]);
+			}
 
-    var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
-    var gr = new GifReader(data);
-    console.log("Gif size : "+ gr.width  +" " + gr.height);
+			sendBitmap(bitmap, chunkSize, imageNumber);
 
-    var pixels = [];
-    gr.decodeAndBlitFrameRGBA(0, pixels);
+		} else {
+			sendFailure(xhr.status, imageNumber);
+		}
+	};
 
-    var bitmap = convertImage(pixels, 4, gr.width, gr.height);
-
-    sendBitmap(bitmap, chunkSize);
-  };
-
-  var xhrTimeout = setTimeout(function() {
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": 0});
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
-  }, DOWNLOAD_TIMEOUT);
-
-  xhr.send(null);
+	xhr.send(null);
 }
 
-function getJpegImage(url, chunkSize){
-  var j = new JpegImage();
-  j.onload = function() {
-    clearTimeout(xhrTimeout); // got response, no more need in timeout
+function getGifImage(url, chunkSize, imageNumber) {
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET", url, true);
+	xhr.responseType = "arraybuffer";
+	xhr.onload = function() {
+		var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
+		var gr = new GifReader(data);
+		console.log("Gif size : " + gr.width + " " + gr.height);
 
-    console.log("Jpeg size : " + j.width + "x" + j.height);
+		var pixels = [];
+		gr.decodeAndBlitFrameRGBA(0, pixels);
 
-    var pixels = j.getData(j.width, j.height);
+		var bitmap = convertImage(pixels, 4, gr.width, gr.height);
 
-    var bitmap = convertImage(pixels, 3, j.width, j.height);
+		sendBitmap(bitmap, chunkSize, imageNumber);
+	};
 
-    sendBitmap(bitmap, chunkSize);    
-  };
-
-  var xhrTimeout = setTimeout(function() {
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": 0});
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
-  }, DOWNLOAD_TIMEOUT);
-
-  try{
-    j.load(url);
-  }catch(e){
-    console.log("Error : " + e);
-  }
+	xhr.send(null);
 }
 
-function getPngImage(url, chunkSize){
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
-  xhr.responseType = "arraybuffer";
-  xhr.onload = function() {
-    clearTimeout(xhrTimeout); // got response, no more need in timeout
+function getJpegImage(url, chunkSize, imageNumber) {
+	/*
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET", url, true);
+	xhr.responseType = "arraybuffer";
+	xhr.onload = function() {
+		var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
 
-    var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
+		try {
+			var parser = new JpegDecoder();
+			parser.parse(data);
 
-    var png     = new PNG(data);
-    var width   = png.width;
-    var height  = png.height;
-    var palette = png.palette;
-    var pixels  = png.decodePixels();
-    var bitmap  = [];
+			console.log("Jpeg size : " + parser.width + "x" + parser.height);
 
-    if(palette.length > 0){
-      var png_arr = [];
-      for(var i=0; i<pixels.length; i++) {
-        png_arr.push(palette[3*pixels[i]+0] & 0xFF);
-        png_arr.push(palette[3*pixels[i]+1] & 0xFF);
-        png_arr.push(palette[3*pixels[i]+2] & 0xFF);
-      }
-      bitmap = convertImage(png_arr, 3, width, height);
-    }
-    else {
-      var components = pixels.length /( width*height);
-      bitmap = convertImage(pixels, components, width, height);
-    }
+			var pixels = parser.getData(parser.width, parser.height);
 
-    sendBitmap(bitmap, chunkSize);
-  };
+			var bitmap = convertImage(pixels, 3, parser.width, parser.height);
 
-  var xhrTimeout = setTimeout(function() {
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_BEGIN": 0});
-    sendAppMessageEx(NET_IMAGE_QUEUE, {"NETIMAGE_END": "done"});
-  }, DOWNLOAD_TIMEOUT);
+			sendBitmap(bitmap, chunkSize, imageNumber);
 
-  xhr.send(null);
+		} catch (ex) {
+			sendFailure(ex, imageNumber);
+		}
+	};
+
+	xhr.send(null);
+	*/
+	var j = new JpegImage();
+	j.onload = function() {
+		try {
+			var pixels = j.getData(j.width, j.height);
+			var bitmap = convertImage(pixels, 3, j.width, j.height);
+			sendBitmap(bitmap, chunkSize, imageNumber);
+		} catch (ex) {
+			sendFailure(ex, imageNumber);
+		}
+	};
+
+	try {
+		j.load(url);
+	} catch (ex) {
+		sendFailure(ex, imageNumber);
+	}
+
+}
+
+function getPngImage(url, chunkSize, imageNumber) {
+
+	var request = http.get(url, function(response) {
+		var data = "";
+
+		response.setEncoding("binary");
+
+		response.on("data", function(chunk) {
+			data += chunk;
+		});
+
+		response.on("end", function() {
+			var buffer = new Buffer(data, "binary");
+			new PNG().parse(buffer, function(error, data) {
+				if (error) {
+					sendFailure("PNG parse error: " + error, imageNumber);
+
+				} else {
+					var bitmap = convertImage(data.data, 4, data.width, data.height);
+					sendBitmap(bitmap, chunkSize, imageNumber);
+				}
+			});
+		});
+	});
+
+	request.on("error", function(error) {
+		sendFailure(error, imageNumber);
+	});
+
+	request.setTimeout(DOWNLOAD_TIMEOUT, function() {
+		sendFailure("timeout", imageNumber);
+	});
 }
 
 function endsWith(str, suffix) {
-    return str.indexOf(suffix, str.length - suffix.length) !== -1;
+	return str.indexOf(suffix, str.length - suffix.length) !== -1;
 }
 
-function getImage(url, chunkSize){
-  console.log("Image URL : "+ url);
+function getImage(url, chunkSize) {
+	try {
+		console.log("Image URL : " + url);
 
-  if(endsWith(url, ".pbi")){
-    getPbiImage(url, chunkSize);
-  }
-  else if(endsWith(url, ".gif") || endsWith(url, ".GIF")){
-    getGifImage(url, chunkSize);
-  }
-  else if(endsWith(url, ".jpg") || endsWith(url, ".jpeg") || endsWith(url, ".JPG") || endsWith(url, ".JPEG")){
-    getJpegImage(url, chunkSize);
-  }
-  else if(endsWith(url, ".png") || endsWith(url, ".PNG")){
-    getPngImage(url, chunkSize);
-  }
-  else {
-    getJpegImage(url, chunkSize);
-  }
+		imageNumber++;
+
+		var extension = url.toLowerCase().split(".").pop();
+
+		xhrTimeout = setTimeout(function() {
+			sendFailure("timeout", imageNumber);
+		}, DOWNLOAD_TIMEOUT);
+
+		switch (extension) {
+			case "pbi":
+				getPbiImage(url, chunkSize, imageNumber);
+				break;
+
+			case "gif":
+				getGifImage(url, chunkSize, imageNumber);
+				break;
+
+			case "jpg":
+			case "jpeg":
+				getJpegImage(url, chunkSize, imageNumber);
+				break;
+
+			case "png":
+				getPngImage(url, chunkSize, imageNumber);
+				break;
+
+			default:
+				getJpegImage(url, chunkSize, imageNumber);
+				break;
+		}
+	} catch (ex) {
+		sendFailure(ex, imageNumber);
+	}
 }

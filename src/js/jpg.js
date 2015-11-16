@@ -1,4 +1,4 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 /*
    Copyright 2011 notmasteryet
@@ -44,14 +44,14 @@ var JpegImage = (function jpegImage() {
     63
   ]);
 
-  var dctCos1  =  4017;   // cos(pi/16)
-  var dctSin1  =   799;   // sin(pi/16)
-  var dctCos3  =  3406;   // cos(3*pi/16)
-  var dctSin3  =  2276;   // sin(3*pi/16)
-  var dctCos6  =  1567;   // cos(6*pi/16)
-  var dctSin6  =  3784;   // sin(6*pi/16)
-  var dctSqrt2 =  5793;   // sqrt(2)
-  var dctSqrt1d2 = 2896;  // sqrt(2) / 2
+  var dctCos1  =  4017   // cos(pi/16)
+  var dctSin1  =   799   // sin(pi/16)
+  var dctCos3  =  3406   // cos(3*pi/16)
+  var dctSin3  =  2276   // sin(3*pi/16)
+  var dctCos6  =  1567   // cos(6*pi/16)
+  var dctSin6  =  3784   // sin(6*pi/16)
+  var dctSqrt2 =  5793   // sqrt(2)
+  var dctSqrt1d2 = 2896  // sqrt(2) / 2
 
   function constructor() {
   }
@@ -217,8 +217,7 @@ var JpegImage = (function jpegImage() {
         switch (successiveACState) {
         case 0: // initial state
           var rs = decodeHuffman(component.huffmanTableAC);
-          var s = rs & 15;
-          r = rs >> 4;
+          var s = rs & 15, r = rs >> 4;
           if (s === 0) {
             if (r < 15) {
               eobrun = receive(r) + (1 << r);
@@ -373,9 +372,9 @@ var JpegImage = (function jpegImage() {
       var row = 8 * i;
 
       // check for all-zero AC coefficients
-      if (p[1 + row] === 0 && p[2 + row] === 0 && p[3 + row] === 0 &&
-          p[4 + row] === 0 && p[5 + row] === 0 && p[6 + row] === 0 &&
-          p[7 + row] === 0) {
+      if (p[1 + row] == 0 && p[2 + row] == 0 && p[3 + row] == 0 &&
+          p[4 + row] == 0 && p[5 + row] == 0 && p[6 + row] == 0 &&
+          p[7 + row] == 0) {
         t = (dctSqrt2 * p[0 + row] + 512) >> 10;
         p[0 + row] = t;
         p[1 + row] = t;
@@ -442,9 +441,9 @@ var JpegImage = (function jpegImage() {
       var col = i;
 
       // check for all-zero AC coefficients
-      if (p[1*8 + col] === 0 && p[2*8 + col] === 0 && p[3*8 + col] === 0 &&
-          p[4*8 + col] === 0 && p[5*8 + col] === 0 && p[6*8 + col] === 0 &&
-          p[7*8 + col] === 0) {
+      if (p[1*8 + col] == 0 && p[2*8 + col] == 0 && p[3*8 + col] == 0 &&
+          p[4*8 + col] == 0 && p[5*8 + col] == 0 && p[6*8 + col] == 0 &&
+          p[7*8 + col] == 0) {
         t = (dctSqrt2 * p[i+0] + 8192) >> 14;
         p[0*8 + col] = t;
         p[1*8 + col] = t;
@@ -525,7 +524,7 @@ var JpegImage = (function jpegImage() {
     var i, j, ll = 0;
     for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
       for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
-        var offset = getBlockBufferOffset(component, blockRow, blockCol);
+        var offset = getBlockBufferOffset(component, blockRow, blockCol)
         quantizeAndInverse(component, offset, computationBuffer);
       }
     }
@@ -538,17 +537,31 @@ var JpegImage = (function jpegImage() {
 
   constructor.prototype = {
     load: function load(path) {
-      var xhr = new XMLHttpRequest();
-      xhr.open("GET", path, true);
-      xhr.responseType = "arraybuffer";
-      xhr.onload = (function() {
-        // TODO catch parse error
-        var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
+      var handleData = (function(data) {
         this.parse(data);
         if (this.onload)
           this.onload();
       }).bind(this);
-      xhr.send(null);
+
+      if (path.indexOf("data:") > -1) {
+        var offset = path.indexOf("base64,")+7;
+        var data = atob(path.substring(offset));
+        var arr = new Uint8Array(data.length);
+        for (var i = data.length - 1; i >= 0; i--) {
+          arr[i] = data.charCodeAt(i);
+        }
+        handleData(data);
+      } else {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", path, true);
+        xhr.responseType = "arraybuffer";
+        xhr.onload = (function() {
+          // TODO catch parse error
+          var data = new Uint8Array(xhr.response);
+          handleData(data);
+        }).bind(this);
+        xhr.send(null);
+      }
     },
 
     parse: function parse(data) {
@@ -576,7 +589,8 @@ var JpegImage = (function jpegImage() {
           var blocksPerLineForMcu = mcusPerLine * component.h;
           var blocksPerColumnForMcu = mcusPerColumn * component.v;
 
-          var blocksBufferSize = 64 * blocksPerColumnForMcu * (blocksPerLineForMcu + 1);
+          var blocksBufferSize = 64 * blocksPerColumnForMcu
+                                    * (blocksPerLineForMcu + 1);
           component.blockData = new Int16Array(blocksBufferSize);
           component.blocksPerLine = blocksPerLine;
           component.blocksPerColumn = blocksPerColumn;
@@ -669,7 +683,6 @@ var JpegImage = (function jpegImage() {
                 }
               } else
                 throw "DQT: invalid table spec";
-              //quantizationTables[quantizationTableSpec & 15] = tableData;
             }
             break;
 
