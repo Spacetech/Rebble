@@ -146,7 +146,7 @@ void SetThreadScore(struct ThreadData* thread, int index, char* str);
 void SetThreadSubreddit(struct ThreadData* thread, int index, char* str);
 
 void init_netimage(int index);
-void callback_netimage(GBitmap *image);
+void callback_netimage(int index, GBitmap *image);
 NetImageContext* get_netimage_context();
 void free_netimage();
 
